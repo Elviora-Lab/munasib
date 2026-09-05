@@ -100,6 +100,22 @@ function capiRelay(
   }
 }
 
+function metaContents(
+  items: Array<{ item_id: string; price?: number; quantity?: number }> | undefined,
+) {
+  return items
+    ?.filter((i) => i.item_id)
+    .map((i) => ({
+      id: i.item_id,
+      ...(typeof i.quantity === 'number' && Number.isFinite(i.quantity) && i.quantity > 0
+        ? { quantity: i.quantity }
+        : {}),
+      ...(typeof i.price === 'number' && Number.isFinite(i.price) && i.price > 0
+        ? { item_price: i.price }
+        : {}),
+    }));
+}
+
 export const analytics = {
   viewItem(p: { id: string; name: string; price: number; currency: string; brand?: string }) {
     logDev('view_item', p);
@@ -112,6 +128,7 @@ export const analytics = {
       value: p.price,
       currency: p.currency,
       content_ids: [p.id],
+      contents: [{ id: p.id, item_price: p.price }],
       content_name: p.name,
       content_type: 'product',
     });
@@ -145,6 +162,7 @@ export const analytics = {
       value: p.price * p.quantity,
       currency: p.currency,
       content_ids: [p.id],
+      contents: [{ id: p.id, quantity: p.quantity, item_price: p.price }],
       content_type: 'product',
     });
     ga.addToCart(p);
@@ -225,6 +243,7 @@ export const analytics = {
     capiRelay('AddToWishlist', eventId, {
       ...(typeof p.price === 'number' ? { value: p.price, currency: p.currency ?? 'PKR' } : {}),
       content_ids: [p.id],
+      contents: [{ id: p.id, ...(typeof p.price === 'number' ? { item_price: p.price } : {}) }],
       content_type: 'product',
       ...(p.name ? { content_name: p.name } : {}),
     });
@@ -240,13 +259,22 @@ export const analytics = {
   }) {
     logDev('begin_checkout', p);
     const eventId = newEventId();
-    metaPixel.initiateCheckout({ value: p.value, currency: p.currency, items: p.count }, eventId);
+    metaPixel.initiateCheckout(
+      {
+        value: p.value,
+        currency: p.currency,
+        items: p.count,
+        contents: metaContents(p.items),
+      },
+      eventId,
+    );
     capiRelay('InitiateCheckout', eventId, {
       value: p.value,
       currency: p.currency,
       num_items: p.count,
       content_type: 'product',
       ...(p.items?.length ? { content_ids: p.items.map((i) => i.item_id) } : {}),
+      ...(p.items?.length ? { contents: metaContents(p.items) } : {}),
     });
     ga.beginCheckout({ value: p.value, currency: p.currency, coupon: p.coupon, items: p.items });
   },
@@ -275,12 +303,21 @@ export const analytics = {
     // the AddToCart / InitiateCheckout pattern so checkout tracking is
     // consistent end-to-end and Meta counts the pair once.
     const eventId = newEventId();
-    metaPixel.addPaymentInfo({ value: p.value, currency: p.currency, method: p.method }, eventId);
+    metaPixel.addPaymentInfo(
+      {
+        value: p.value,
+        currency: p.currency,
+        method: p.method,
+        contents: metaContents(p.items),
+      },
+      eventId,
+    );
     capiRelay('AddPaymentInfo', eventId, {
       value: p.value,
       currency: p.currency,
       content_type: 'product',
       ...(p.items?.length ? { content_ids: p.items.map((i) => i.item_id) } : {}),
+      ...(p.items?.length ? { contents: metaContents(p.items) } : {}),
     });
     ga.addPaymentInfo(p);
   },
@@ -301,7 +338,7 @@ export const analytics = {
       value: p.value,
       currency: p.currency,
       items: p.count,
-      contentIds: p.items?.map((i) => i.item_id).filter(Boolean),
+      contents: metaContents(p.items),
     });
     ga.purchase({
       orderId: p.orderId,

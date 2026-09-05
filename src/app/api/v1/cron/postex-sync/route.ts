@@ -7,10 +7,8 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 /**
- * Reconcile PostEx consignment statuses into our orders. Also runs daily as
- * part of the back-in-stock cron (to stay within the Hobby 2-cron limit); this
- * standalone endpoint lets you trigger it on demand, or give it a dedicated
- * schedule on a plan that allows more cron jobs.
+ * Reconcile PostEx consignment statuses into our orders. This endpoint is
+ * scheduled in vercel.json and can also be triggered manually after a pickup.
  */
 export async function GET(req: Request) {
   const denied = cronAuthError(req);

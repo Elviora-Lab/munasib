@@ -193,7 +193,7 @@ export function CheckoutClient({
     if (method === paymentMethod) return;
     setPaymentMethod(method);
     // Selecting a method is "adding payment info" for COD/bank. Pass line items
-    // so the deduped CAPI twin carries content_ids for content matching.
+    // so the deduped CAPI twin carries Meta catalogue IDs for matching.
     analytics.addPaymentInfo({
       value: total,
       currency: cart.currency,

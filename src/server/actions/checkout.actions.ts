@@ -181,6 +181,13 @@ export const placeOrder = withAction(async (raw: unknown) => {
     const contentIds = order.items
       .map((i) => i.productId)
       .filter((id): id is string => Boolean(id));
+    const contents = order.items
+      .filter((i) => i.productId)
+      .map((i) => ({
+        id: i.productId as string,
+        quantity: i.quantity,
+        item_price: Number(i.unitPrice),
+      }));
     const capiEvent = {
       eventName: 'Purchase',
       eventId: order.id,
@@ -204,6 +211,7 @@ export const placeOrder = withAction(async (raw: unknown) => {
         num_items: order.items.reduce((sum, i) => sum + i.quantity, 0),
         content_type: 'product',
         content_ids: contentIds,
+        contents,
       },
     };
     after(async () => {

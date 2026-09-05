@@ -38,6 +38,12 @@ type PixelParams = Record<string, unknown>;
  * counterpart so Meta deduplicates the two. */
 type TrackOpts = { eventID?: string };
 
+type PixelContent = {
+  id: string;
+  quantity?: number;
+  item_price?: number;
+};
+
 type QueuedPixelCall =
   | { kind: 'track'; event: string; params?: PixelParams; opts?: TrackOpts }
   | { kind: 'trackCustom'; event: string; params?: PixelParams; opts?: TrackOpts }
@@ -153,6 +159,30 @@ function moneyFields(
     : {};
 }
 
+function contentRows(contents: PixelContent[]): PixelContent[] {
+  return contents
+    .filter((c) => c.id)
+    .map((c) => ({
+      id: c.id,
+      ...(typeof c.quantity === 'number' && Number.isFinite(c.quantity) && c.quantity > 0
+        ? { quantity: c.quantity }
+        : {}),
+      ...(typeof c.item_price === 'number' && Number.isFinite(c.item_price) && c.item_price > 0
+        ? { item_price: c.item_price }
+        : {}),
+    }));
+}
+
+function catalogFields(contents: PixelContent[]): Record<string, unknown> {
+  const rows = contentRows(contents);
+  if (rows.length === 0) return {};
+  return {
+    content_ids: rows.map((c) => c.id),
+    content_type: 'product',
+    contents: rows,
+  };
+}
+
 export const metaPixel = {
   pageView: () => fbTrack('PageView'),
 
@@ -163,9 +193,8 @@ export const metaPixel = {
     fbTrack(
       'ViewContent',
       {
-        content_ids: [p.id],
+        ...catalogFields([{ id: p.id, item_price: p.price }]),
         content_name: p.name,
-        content_type: 'product',
         ...moneyFields(p.price, p.currency),
       },
       eventID ? { eventID } : undefined,
@@ -181,10 +210,8 @@ export const metaPixel = {
     fbTrack(
       'AddToCart',
       {
-        content_ids: [p.id],
+        ...catalogFields([{ id: p.id, quantity: p.quantity, item_price: p.price }]),
         content_name: p.name,
-        content_type: 'product',
-        contents: [{ id: p.id, quantity: p.quantity }],
         ...moneyFields(p.price * p.quantity, p.currency),
       },
       eventID ? { eventID } : undefined,
@@ -197,30 +224,37 @@ export const metaPixel = {
     fbTrack(
       'AddToWishlist',
       {
-        content_ids: [p.id],
-        content_type: 'product',
+        ...catalogFields([{ id: p.id, item_price: p.price }]),
         ...(p.name ? { content_name: p.name } : {}),
         ...moneyFields(p.price, p.currency),
       },
       eventID ? { eventID } : undefined,
     ),
 
-  initiateCheckout: (p: { value: number; currency: string; items: number }, eventID?: string) =>
+  initiateCheckout: (
+    p: { value: number; currency: string; items: number; contents?: PixelContent[] },
+    eventID?: string,
+  ) =>
     fbTrack(
       'InitiateCheckout',
       {
         ...moneyFields(p.value, p.currency),
         num_items: p.items,
+        ...(p.contents?.length ? catalogFields(p.contents) : {}),
       },
       eventID ? { eventID } : undefined,
     ),
 
-  addPaymentInfo: (p: { value: number; currency: string; method: string }, eventID?: string) =>
+  addPaymentInfo: (
+    p: { value: number; currency: string; method: string; contents?: PixelContent[] },
+    eventID?: string,
+  ) =>
     fbTrack(
       'AddPaymentInfo',
       {
         ...moneyFields(p.value, p.currency),
         payment_method: p.method,
+        ...(p.contents?.length ? catalogFields(p.contents) : {}),
       },
       eventID ? { eventID } : undefined,
     ),
@@ -232,7 +266,7 @@ export const metaPixel = {
     value: number;
     currency: string;
     items: number;
-    contentIds?: string[];
+    contents?: PixelContent[];
   }) =>
     fbTrack(
       'Purchase',
@@ -240,7 +274,7 @@ export const metaPixel = {
         ...moneyFields(p.value, p.currency),
         num_items: p.items,
         content_type: 'product',
-        ...(p.contentIds?.length ? { content_ids: p.contentIds } : {}),
+        ...(p.contents?.length ? catalogFields(p.contents) : {}),
       },
       { eventID: p.orderId },
     ),

@@ -41,6 +41,7 @@ describe('meta pixel queue', () => {
         content_ids: ['c4ee3f06-0d63-4f3b-9b2f-ce4ee335e86f'],
         content_name: '5-Ring Hole Hanger With 3-Layer For Multipurpose',
         content_type: 'product',
+        contents: [{ id: 'c4ee3f06-0d63-4f3b-9b2f-ce4ee335e86f', item_price: 189 }],
         value: 189,
         currency: 'PKR',
       },
