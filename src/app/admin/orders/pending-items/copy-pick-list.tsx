@@ -33,33 +33,23 @@ function lineDisplayName(line: PickListLine): string {
   return line.sku ? `${name} [${line.sku}]` : name;
 }
 
-/** Plain TSV — Name and Qty as separate columns (paste into Sheets / Excel / WhatsApp). */
-export function formatPickListPlain(
-  lines: ReadonlyArray<PickListLine>,
-  meta: { statusLabel: string; orderCount: number },
-): string {
-  const totalUnits = lines.reduce((sum, line) => sum + line.totalQuantity, 0);
-  const header = `Pending items (${meta.statusLabel}) — ${totalUnits} unit${totalUnits === 1 ? '' : 's'} · ${lines.length} line${lines.length === 1 ? '' : 's'} · ${meta.orderCount} order${meta.orderCount === 1 ? '' : 's'}`;
+/**
+ * Public thumbnail URL for spreadsheet IMAGE() formulas and HTML paste.
+ * Spreadsheets ignore clipboard base64/data-URL images — they need a real https URL
+ * (Google Sheets / Excel 365 render =IMAGE("https://…")).
+ */
+export function thumbProxyUrl(src: string): string {
+  try {
+    const url = new URL(src);
+    // Prefer Shopify's own resize when possible — Sheets can fetch it directly.
+    if (url.hostname === 'cdn.shopify.com' || url.hostname.endsWith('.shopify.com')) {
+      url.searchParams.set('width', '120');
+      return url.toString();
+    }
+  } catch {
+    /* fall through to weserv */
+  }
 
-  if (lines.length === 0) return `${header}\n\n(nothing to pack)`;
-
-  const rows = [
-    'Name\tQty',
-    ...lines.map((line) => `${lineDisplayName(line)}\t${line.totalQuantity}`),
-  ];
-  return `${header}\n\n${rows.join('\n')}`;
-}
-
-/** @deprecated use formatPickListPlain */
-export function formatPickList(
-  lines: ReadonlyArray<PickListLine>,
-  meta: { statusLabel: string; orderCount: number },
-): string {
-  return formatPickListPlain(lines, meta);
-}
-
-/** CORS-friendly thumbnail URL via weserv (embeds cleanly into clipboard HTML). */
-function thumbProxyUrl(src: string): string {
   let hostPath: string;
   try {
     const url = new URL(src);
@@ -69,38 +59,44 @@ function thumbProxyUrl(src: string): string {
   }
   const params = new URLSearchParams({
     url: hostPath,
-    w: '80',
-    h: '80',
+    w: '120',
+    h: '120',
     fit: 'cover',
     output: 'jpg',
-    q: '70',
+    q: '75',
   });
   return `https://images.weserv.nl/?${params.toString()}`;
 }
 
-async function imageToDataUrl(src: string): Promise<string | null> {
-  try {
-    const res = await fetch(thumbProxyUrl(src), { mode: 'cors', cache: 'force-cache' });
-    if (!res.ok) return null;
-    const blob = await res.blob();
-    const bitmap = await createImageBitmap(blob);
-    const size = 72;
-    const canvas = document.createElement('canvas');
-    canvas.width = size;
-    canvas.height = size;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return null;
-    const scale = Math.max(size / bitmap.width, size / bitmap.height);
-    const w = bitmap.width * scale;
-    const h = bitmap.height * scale;
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, size, size);
-    ctx.drawImage(bitmap, (size - w) / 2, (size - h) / 2, w, h);
-    bitmap.close();
-    return canvas.toDataURL('image/jpeg', 0.72);
-  } catch {
-    return null;
-  }
+function imageFormula(src: string | null | undefined): string {
+  if (!src) return '';
+  const url = thumbProxyUrl(src).replace(/"/g, '""');
+  // Google Sheets + Excel 365 show the picture in-cell from this formula.
+  return `=IMAGE("${url}")`;
+}
+
+/**
+ * TSV for spreadsheets: Image | Name | Qty.
+ * Image column uses =IMAGE("…") so Sheets/Excel render thumbnails after paste.
+ */
+export function formatPickListPlain(lines: ReadonlyArray<PickListLine>): string {
+  if (lines.length === 0) return 'Image\tName\tQty';
+
+  const rows = [
+    'Image\tName\tQty',
+    ...lines.map(
+      (line) => `${imageFormula(line.imageUrl)}\t${lineDisplayName(line)}\t${line.totalQuantity}`,
+    ),
+  ];
+  return rows.join('\n');
+}
+
+/** @deprecated use formatPickListPlain */
+export function formatPickList(
+  lines: ReadonlyArray<PickListLine>,
+  _meta?: { statusLabel: string; orderCount: number },
+): string {
+  return formatPickListPlain(lines);
 }
 
 function escapeHtml(value: string): string {
@@ -111,21 +107,21 @@ function escapeHtml(value: string): string {
     .replace(/"/g, '&quot;');
 }
 
+/** HTML table with https thumbnail URLs (for Docs/Word/email). */
 export function formatPickListHtml(
   lines: ReadonlyArray<PickListLine>,
   meta: { statusLabel: string; orderCount: number },
-  thumbs: ReadonlyArray<string | null>,
 ): string {
   const totalUnits = lines.reduce((sum, line) => sum + line.totalQuantity, 0);
   const caption = `Pending items (${escapeHtml(meta.statusLabel)}) — ${totalUnits} units · ${lines.length} lines · ${meta.orderCount} orders`;
 
   const body = lines
-    .map((line, i) => {
+    .map((line) => {
       const name = escapeHtml(lineDisplayName(line));
       const qty = line.totalQuantity;
-      const dataUrl = thumbs[i];
-      const img = dataUrl
-        ? `<img src="${dataUrl}" width="72" height="72" alt="" style="display:block;width:72px;height:72px;object-fit:cover;border-radius:6px;" />`
+      const thumb = line.imageUrl ? thumbProxyUrl(line.imageUrl) : null;
+      const img = thumb
+        ? `<img src="${escapeHtml(thumb)}" width="72" height="72" alt="" style="display:block;width:72px;height:72px;object-fit:cover;border-radius:6px;" />`
         : '';
       return `<tr>
   <td style="padding:8px;border:1px solid #ddd;vertical-align:middle;width:88px;">${img}</td>
@@ -152,9 +148,11 @@ export function formatPickListHtml(
 
 async function writeRichClipboard(html: string, plain: string): Promise<void> {
   if (typeof ClipboardItem !== 'undefined' && navigator.clipboard.write) {
+    // Prefer plain TSV for spreadsheets (they ignore HTML images / data-URLs).
+    // Still attach HTML for Docs/Word/email paste targets.
     const item = new ClipboardItem({
-      'text/html': new Blob([html], { type: 'text/html' }),
       'text/plain': new Blob([plain], { type: 'text/plain' }),
+      'text/html': new Blob([html], { type: 'text/html' }),
     });
     await navigator.clipboard.write([item]);
     return;
@@ -175,31 +173,21 @@ export function CopyPickListButton({
   const [copied, setCopied] = useState(false);
 
   function onCopy() {
-    const meta = { statusLabel, orderCount };
-    const plain = formatPickListPlain(lines, meta);
+    const plain = formatPickListPlain(lines);
+    const html = formatPickListHtml(lines, { statusLabel, orderCount });
     start(async () => {
       try {
-        toast.message('Preparing thumbnails…');
-        const thumbs = await Promise.all(
-          lines.map((line) =>
-            line.imageUrl ? imageToDataUrl(line.imageUrl) : Promise.resolve(null),
-          ),
-        );
-        const html = formatPickListHtml(lines, meta, thumbs);
         await writeRichClipboard(html, plain);
         setCopied(true);
-        const withImages = thumbs.filter(Boolean).length;
         toast.success(
-          withImages > 0
-            ? `Copied table with ${withImages} image${withImages === 1 ? '' : 's'} — paste into Email, Docs, or Word`
-            : 'Copied Name + Qty columns — paste into your message',
+          'Copied Image / Name / Qty — paste into Sheets or Excel (images load via =IMAGE)',
         );
         window.setTimeout(() => setCopied(false), 2000);
       } catch {
         try {
           await navigator.clipboard.writeText(plain);
           setCopied(true);
-          toast.success('Copied Name + Qty as text');
+          toast.success('Copied Image / Name / Qty as text');
           window.setTimeout(() => setCopied(false), 2000);
         } catch {
           toast.error('Could not copy — check clipboard permission');
