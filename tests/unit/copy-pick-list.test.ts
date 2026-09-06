@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  formatPickListHtml,
   formatPickListPlain,
+  imageFormula,
+  lineDisplayName,
   thumbProxyUrl,
 } from '@/app/admin/orders/pending-items/copy-pick-list';
 
@@ -29,29 +30,29 @@ const lines = [
   },
 ];
 
-describe('pick list copy formatting', () => {
-  it('builds spreadsheet columns with IMAGE formulas for thumbnails', () => {
+describe('pick list formatting', () => {
+  it('copies three columns with readable fixed-size IMAGE formulas', () => {
     const text = formatPickListPlain(lines);
     expect(text.split('\n')[0]).toBe('Image\tName\tQty');
     expect(text).toContain(
-      '=IMAGE("https://cdn.shopify.com/s/files/1/example/sipper.jpg?width=120")',
+      '=IMAGE("https://cdn.shopify.com/s/files/1/example/sipper.jpg?width=240",4,120,120)',
     );
     expect(text).toContain('Glass Sipper (450ml) [KIT-1]\t3');
     expect(text).toContain('\tSpice Rack (Default)\t1');
   });
 
-  it('uses https thumbnail URLs in HTML (not data-URLs)', () => {
-    const html = formatPickListHtml(lines, { statusLabel: 'pending', orderCount: 2 });
-    expect(html).toContain('Image');
-    expect(html).toContain('Name');
-    expect(html).toContain('Qty');
-    expect(html).toContain('cdn.shopify.com');
-    expect(html).not.toContain('data:image');
-    expect(html).toContain('Glass Sipper (450ml) [KIT-1]');
+  it('uses IMAGE mode 4 at 120px so thumbs stay readable', () => {
+    expect(imageFormula('https://cdn.shopify.com/a.jpg')).toBe(
+      '=IMAGE("https://cdn.shopify.com/a.jpg?width=240",4,120,120)',
+    );
+  });
+
+  it('builds display names with variant details', () => {
+    expect(lineDisplayName(lines[0]!)).toBe('Glass Sipper (450ml) [KIT-1]');
   });
 
   it('builds shopify width thumbs and weserv for other hosts', () => {
-    expect(thumbProxyUrl('https://cdn.shopify.com/a.jpg')).toContain('width=120');
+    expect(thumbProxyUrl('https://cdn.shopify.com/a.jpg')).toContain('width=240');
     expect(thumbProxyUrl('https://res.cloudinary.com/demo/image/upload/x.jpg')).toContain(
       'images.weserv.nl',
     );

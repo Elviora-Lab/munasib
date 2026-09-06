@@ -1,12 +1,15 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { Check, Copy } from 'lucide-react';
+import { Check, Copy, Download } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 
 import { displayVariant, shadeLabel } from './variant-label';
+
+/** Readable in-cell thumbnail size for Sheets/Excel =IMAGE(..., 4, w, h). */
+const THUMB_PX = 120;
 
 export type PickListLine = {
   productName: string;
@@ -19,7 +22,7 @@ export type PickListLine = {
   imageUrl?: string | null;
 };
 
-function lineDisplayName(line: PickListLine): string {
+export function lineDisplayName(line: PickListLine): string {
   const details = [
     line.size,
     shadeLabel(line.shade),
@@ -30,24 +33,20 @@ function lineDisplayName(line: PickListLine): string {
     .join(' · ');
 
   const name = details ? `${line.productName} (${details})` : line.productName;
-  return line.sku ? `${name} [${line.sku}]` : name;
+  // Avoid tabs/newlines so TSV columns stay aligned when pasting into Sheets.
+  return (line.sku ? `${name} [${line.sku}]` : name).replace(/[\t\n\r]+/g, ' ').trim();
 }
 
-/**
- * Public thumbnail URL for spreadsheet IMAGE() formulas and HTML paste.
- * Spreadsheets ignore clipboard base64/data-URL images — they need a real https URL
- * (Google Sheets / Excel 365 render =IMAGE("https://…")).
- */
+/** Public thumbnail URL Sheets/Excel can fetch for =IMAGE(). */
 export function thumbProxyUrl(src: string): string {
   try {
     const url = new URL(src);
-    // Prefer Shopify's own resize when possible — Sheets can fetch it directly.
     if (url.hostname === 'cdn.shopify.com' || url.hostname.endsWith('.shopify.com')) {
-      url.searchParams.set('width', '120');
+      url.searchParams.set('width', String(THUMB_PX * 2));
       return url.toString();
     }
   } catch {
-    /* fall through to weserv */
+    /* fall through */
   }
 
   let hostPath: string;
@@ -59,154 +58,185 @@ export function thumbProxyUrl(src: string): string {
   }
   const params = new URLSearchParams({
     url: hostPath,
-    w: '120',
-    h: '120',
+    w: String(THUMB_PX * 2),
+    h: String(THUMB_PX * 2),
     fit: 'cover',
     output: 'jpg',
-    q: '75',
+    q: '80',
   });
   return `https://images.weserv.nl/?${params.toString()}`;
 }
 
-function imageFormula(src: string | null | undefined): string {
+/**
+ * Fixed-size IMAGE formula (mode 4) so thumbs stay readable even when
+ * default row height would crush mode-1 "fit to cell" images.
+ */
+export function imageFormula(src: string | null | undefined, sizePx = THUMB_PX): string {
   if (!src) return '';
   const url = thumbProxyUrl(src).replace(/"/g, '""');
-  // Google Sheets + Excel 365 show the picture in-cell from this formula.
-  return `=IMAGE("${url}")`;
+  return `=IMAGE("${url}",4,${sizePx},${sizePx})`;
 }
 
-/**
- * TSV for spreadsheets: Image | Name | Qty.
- * Image column uses =IMAGE("…") so Sheets/Excel render thumbnails after paste.
- */
+/** TSV: Image | Name | Qty — paste into A1 in Google Sheets / Excel 365. */
 export function formatPickListPlain(lines: ReadonlyArray<PickListLine>): string {
   if (lines.length === 0) return 'Image\tName\tQty';
-
-  const rows = [
+  return [
     'Image\tName\tQty',
     ...lines.map(
       (line) => `${imageFormula(line.imageUrl)}\t${lineDisplayName(line)}\t${line.totalQuantity}`,
     ),
-  ];
-  return rows.join('\n');
+  ].join('\n');
 }
 
-/** @deprecated use formatPickListPlain */
-export function formatPickList(
-  lines: ReadonlyArray<PickListLine>,
-  _meta?: { statusLabel: string; orderCount: number },
-): string {
+/** @deprecated */
+export function formatPickList(lines: ReadonlyArray<PickListLine>): string {
   return formatPickListPlain(lines);
 }
 
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
-
-/** HTML table with https thumbnail URLs (for Docs/Word/email). */
-export function formatPickListHtml(
-  lines: ReadonlyArray<PickListLine>,
-  meta: { statusLabel: string; orderCount: number },
-): string {
-  const totalUnits = lines.reduce((sum, line) => sum + line.totalQuantity, 0);
-  const caption = `Pending items (${escapeHtml(meta.statusLabel)}) — ${totalUnits} units · ${lines.length} lines · ${meta.orderCount} orders`;
-
-  const body = lines
-    .map((line) => {
-      const name = escapeHtml(lineDisplayName(line));
-      const qty = line.totalQuantity;
-      const thumb = line.imageUrl ? thumbProxyUrl(line.imageUrl) : null;
-      const img = thumb
-        ? `<img src="${escapeHtml(thumb)}" width="72" height="72" alt="" style="display:block;width:72px;height:72px;object-fit:cover;border-radius:6px;" />`
-        : '';
-      return `<tr>
-  <td style="padding:8px;border:1px solid #ddd;vertical-align:middle;width:88px;">${img}</td>
-  <td style="padding:8px;border:1px solid #ddd;vertical-align:middle;font-family:system-ui,sans-serif;font-size:14px;">${name}</td>
-  <td style="padding:8px;border:1px solid #ddd;vertical-align:middle;text-align:right;font-family:system-ui,sans-serif;font-size:16px;font-weight:600;white-space:nowrap;">${qty}</td>
-</tr>`;
-    })
-    .join('');
-
-  return `<!DOCTYPE html><html><body>
-<p style="font-family:system-ui,sans-serif;font-size:13px;color:#555;">${caption}</p>
-<table cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%;max-width:720px;">
-  <thead>
-    <tr>
-      <th style="padding:8px;border:1px solid #ddd;text-align:left;font-family:system-ui,sans-serif;font-size:12px;text-transform:uppercase;color:#666;">Image</th>
-      <th style="padding:8px;border:1px solid #ddd;text-align:left;font-family:system-ui,sans-serif;font-size:12px;text-transform:uppercase;color:#666;">Name</th>
-      <th style="padding:8px;border:1px solid #ddd;text-align:right;font-family:system-ui,sans-serif;font-size:12px;text-transform:uppercase;color:#666;">Qty</th>
-    </tr>
-  </thead>
-  <tbody>${body}</tbody>
-</table>
-</body></html>`;
-}
-
-async function writeRichClipboard(html: string, plain: string): Promise<void> {
-  if (typeof ClipboardItem !== 'undefined' && navigator.clipboard.write) {
-    // Prefer plain TSV for spreadsheets (they ignore HTML images / data-URLs).
-    // Still attach HTML for Docs/Word/email paste targets.
-    const item = new ClipboardItem({
-      'text/plain': new Blob([plain], { type: 'text/plain' }),
-      'text/html': new Blob([html], { type: 'text/html' }),
-    });
-    await navigator.clipboard.write([item]);
-    return;
+async function fetchThumbBytes(src: string): Promise<ArrayBuffer | null> {
+  try {
+    const res = await fetch(thumbProxyUrl(src), { mode: 'cors', cache: 'force-cache' });
+    if (!res.ok) return null;
+    return await res.arrayBuffer();
+  } catch {
+    return null;
   }
-  await navigator.clipboard.writeText(plain);
+}
+
+async function buildPickListWorkbook(lines: ReadonlyArray<PickListLine>) {
+  const ExcelJS = (await import('exceljs')).default;
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = 'Kitchenly';
+  const sheet = workbook.addWorksheet('Pick list', {
+    properties: { defaultRowHeight: THUMB_PX + 16 },
+    views: [{ state: 'frozen', ySplit: 1 }],
+  });
+
+  sheet.columns = [
+    { header: 'Image', key: 'image', width: 18 },
+    { header: 'Name', key: 'name', width: 56 },
+    { header: 'Qty', key: 'qty', width: 8 },
+  ];
+  sheet.getRow(1).font = { bold: true };
+  sheet.getRow(1).height = 24;
+
+  for (const [index, line] of lines.entries()) {
+    const rowNumber = index + 2;
+    const row = sheet.getRow(rowNumber);
+    row.getCell(2).value = lineDisplayName(line);
+    row.getCell(3).value = line.totalQuantity;
+    row.getCell(3).alignment = { horizontal: 'right', vertical: 'middle' };
+    row.getCell(2).alignment = { vertical: 'middle', wrapText: true };
+    row.height = THUMB_PX + 16;
+
+    if (!line.imageUrl) continue;
+    const bytes = await fetchThumbBytes(line.imageUrl);
+    if (!bytes) continue;
+
+    const imageId = workbook.addImage({
+      buffer: new Uint8Array(bytes) as never,
+      extension: 'jpeg',
+    });
+    sheet.addImage(imageId, {
+      tl: { col: 0.1, row: rowNumber - 1 + 0.05 },
+      ext: { width: THUMB_PX, height: THUMB_PX },
+      editAs: 'oneCell',
+    });
+  }
+
+  return workbook.xlsx.writeBuffer();
+}
+
+function downloadBlob(filename: string, blob: Blob) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
 }
 
 export function CopyPickListButton({
   lines,
   statusLabel,
-  orderCount,
 }: {
   lines: PickListLine[];
   statusLabel: string;
-  orderCount: number;
+  orderCount?: number;
 }) {
-  const [pending, start] = useTransition();
+  const [pendingCopy, startCopy] = useTransition();
+  const [pendingDownload, startDownload] = useTransition();
   const [copied, setCopied] = useState(false);
 
   function onCopy() {
+    // Plain text ONLY. Adding text/html makes Google Sheets prefer HTML and
+    // drop the Image column (the =IMAGE formulas never land in the sheet).
     const plain = formatPickListPlain(lines);
-    const html = formatPickListHtml(lines, { statusLabel, orderCount });
-    start(async () => {
+    startCopy(async () => {
       try {
-        await writeRichClipboard(html, plain);
+        await navigator.clipboard.writeText(plain);
         setCopied(true);
         toast.success(
-          'Copied Image / Name / Qty — paste into Sheets or Excel (images load via =IMAGE)',
+          `Copied 3 columns — click A1, Paste, then set row height to ${THUMB_PX + 10} for readable images`,
+          { duration: 6000 },
         );
-        window.setTimeout(() => setCopied(false), 2000);
+        window.setTimeout(() => setCopied(false), 2500);
       } catch {
-        try {
-          await navigator.clipboard.writeText(plain);
-          setCopied(true);
-          toast.success('Copied Image / Name / Qty as text');
-          window.setTimeout(() => setCopied(false), 2000);
-        } catch {
-          toast.error('Could not copy — check clipboard permission');
-        }
+        toast.error('Could not copy — check clipboard permission');
+      }
+    });
+  }
+
+  function onDownloadExcel() {
+    startDownload(async () => {
+      try {
+        toast.message('Building Excel with images…');
+        const buffer = await buildPickListWorkbook(lines);
+        downloadBlob(
+          `kitchenly-pick-list-${statusLabel}-${new Date().toISOString().slice(0, 10)}.xlsx`,
+          new Blob([buffer], {
+            type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          }),
+        );
+        toast.success('Excel ready — images embedded at readable size');
+      } catch (error) {
+        console.error(error);
+        toast.error('Could not build Excel — try Copy instead');
       }
     });
   }
 
   return (
-    <Button
-      type="button"
-      size="sm"
-      variant="outline"
-      loading={pending}
-      disabled={lines.length === 0}
-      onClick={onCopy}
-    >
-      {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
-      {copied ? 'Copied' : 'Copy list'}
-    </Button>
+    <div className="flex flex-col items-end gap-1.5">
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          type="button"
+          size="sm"
+          variant="primary"
+          loading={pendingCopy}
+          disabled={lines.length === 0}
+          onClick={onCopy}
+        >
+          {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+          {copied ? 'Copied' : 'Copy list'}
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          loading={pendingDownload}
+          disabled={lines.length === 0}
+          onClick={onDownloadExcel}
+        >
+          <Download className="size-3.5" />
+          Download Excel
+        </Button>
+      </div>
+      <p className="max-w-sm text-right text-[11px] text-muted-foreground">
+        Copy → click cell A1 → Paste. Then select all rows → Resize row height to {THUMB_PX + 10}.
+      </p>
+    </div>
   );
 }
