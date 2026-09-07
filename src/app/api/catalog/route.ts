@@ -46,7 +46,10 @@ export async function GET() {
       shortDescription: true,
       fullDescription: true,
       price: true,
-      images: { where: { isPrimary: true }, take: 1, select: { imageUrl: true } },
+      images: {
+        orderBy: [{ isPrimary: 'desc' }, { sortOrder: 'asc' }],
+        select: { imageUrl: true },
+      },
       brand: { select: { name: true } },
       variants: { select: { stockQuantity: true, isActive: true } },
     },
@@ -55,10 +58,15 @@ export async function GET() {
 
   const rows = products
     .map((p) => {
-      const image = p.images[0]?.imageUrl;
+      const urls = p.images.map((i) => i.imageUrl.trim()).filter(Boolean);
+      const image = urls.find((u) => !/\.webp(?:$|\?)/i.test(u)) ?? urls[0];
       if (!image) return null; // Meta requires an image_link.
       const inStock = p.variants.some((v) => v.isActive && v.stockQuantity > 0);
-      const description = p.shortDescription || p.fullDescription || p.name;
+      const raw = (p.shortDescription || p.fullDescription || p.name)
+        .replace(/&amp;/gi, '&')
+        .replace(/\s+/g, ' ')
+        .trim();
+      const description = raw.length >= 30 ? raw : p.name;
       return [
         csvCell(p.id),
         csvCell(p.name),

@@ -250,13 +250,15 @@ export const placeOrder = withAction(async (raw: unknown) => {
         tax: Number(order.taxAmount),
         shipping: Number(order.shippingFee),
         coupon: input.couponCode,
-        items: order.items.map((i) => ({
-          item_id: i.productId ?? i.id,
-          item_name: i.productName,
-          ...(i.variantName ? { item_variant: i.variantName } : {}),
-          price: Number(i.unitPrice),
-          quantity: i.quantity,
-        })),
+        items: order.items
+          .filter((i) => Boolean(i.productId))
+          .map((i) => ({
+            item_id: i.productId as string,
+            item_name: i.productName,
+            ...(i.variantName ? { item_variant: i.variantName } : {}),
+            price: Number(i.unitPrice),
+            quantity: i.quantity,
+          })),
       },
       {
         gaCookie: cookieStore.get('_ga')?.value ?? null,

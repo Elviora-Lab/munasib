@@ -14,6 +14,21 @@ const XML_ESCAPES: Record<string, string> = {
 };
 const esc = (s: string) => s.replace(/[<>&'"]/g, (c) => XML_ESCAPES[c]!);
 
+/** Meta accepts JPEG/PNG most reliably; WebP primaries are a common reject reason. */
+function pickCatalogImage(urls: string[]): string | null {
+  const clean = urls.map((u) => u.trim()).filter(Boolean);
+  if (!clean.length) return null;
+  const preferred = clean.find((u) => !/\.webp(?:$|\?)/i.test(u));
+  return preferred ?? clean[0]!;
+}
+
+function catalogDescription(name: string, short: string | null, full: string | null): string {
+  const raw = (short || full || name).replace(/&amp;/gi, '&').replace(/\s+/g, ' ').trim();
+  // Meta flags tiny/garbage blurbs; fall back to the title when copy is truncated junk.
+  const text = raw.length >= 30 ? raw : name;
+  return text.slice(0, 4900);
+}
+
 /**
  * Meta Commerce Manager product catalog feed (RSS 2.0 + the g: namespace).
  *
@@ -56,7 +71,7 @@ export async function GET() {
 
   const items = products
     .map((p) => {
-      const image = p.images[0]?.imageUrl;
+      const image = pickCatalogImage(p.images.map((i) => i.imageUrl));
       if (!image) return ''; // Meta requires an image_link.
 
       const link = `${siteConfig.url}/products/${p.slug}`;
@@ -64,7 +79,7 @@ export async function GET() {
       const price = variantPrices.length ? Math.min(...variantPrices) : Number(p.price);
       const compare = p.comparePrice ? Number(p.comparePrice) : 0;
       const inStock = p.variants.some((v) => v.stockQuantity > 0);
-      const description = (p.shortDescription || p.fullDescription || p.name).slice(0, 4900);
+      const description = catalogDescription(p.name, p.shortDescription, p.fullDescription);
       const onSale = compare > price;
 
       // Meta shows `sale_price` struck through against `price`, so the higher
@@ -74,8 +89,10 @@ export async function GET() {
         : `<g:price>${price.toFixed(2)} PKR</g:price>`;
 
       const additionalImages = p.images
-        .slice(1, 11)
-        .map((i) => `<g:additional_image_link>${esc(i.imageUrl)}</g:additional_image_link>`)
+        .map((i) => i.imageUrl.trim())
+        .filter((url) => url && url !== image)
+        .slice(0, 10)
+        .map((url) => `<g:additional_image_link>${esc(url)}</g:additional_image_link>`)
         .join('');
 
       return `<item>
@@ -85,8 +102,6 @@ export async function GET() {
   <link>${esc(link)}</link>
   <g:image_link>${esc(image)}</g:image_link>
   ${additionalImages}
-  <!-- Meta's canonical availability values are space-separated ("in stock"),
-       unlike Google's underscored "in_stock". Not a typo — don't align them. -->
   <g:availability>${inStock ? 'in stock' : 'out of stock'}</g:availability>
   ${priceTags}
   <g:brand>${esc(p.brand?.name || siteConfig.name)}</g:brand>

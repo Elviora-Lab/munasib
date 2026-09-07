@@ -44,13 +44,16 @@ export default async function OrderSuccessPage({ params }: { params: Params }) {
         items={order.items.reduce((sum, i) => sum + i.quantity, 0)}
         tax={Number(order.taxAmount)}
         shipping={Number(order.shippingFee)}
-        lineItems={order.items.map((i) => ({
-          item_id: i.productId ?? i.id,
-          item_name: i.productName,
-          ...(i.variantName ? { item_variant: i.variantName } : {}),
-          price: Number(i.unitPrice),
-          quantity: i.quantity,
-        }))}
+        lineItems={order.items
+          .filter((i) => Boolean(i.productId))
+          .map((i) => ({
+            // Catalog content_ids must be product UUIDs — never order_item.id.
+            item_id: i.productId as string,
+            item_name: i.productName,
+            ...(i.variantName ? { item_variant: i.variantName } : {}),
+            price: Number(i.unitPrice),
+            quantity: i.quantity,
+          }))}
       />
       {/* Zero-party attribution — best-quality moment to ask, right after buying. */}
       <Survey
