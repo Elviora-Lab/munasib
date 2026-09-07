@@ -16,7 +16,7 @@ export const dynamic = 'force-dynamic';
 type Search = Promise<{ ids?: string }>;
 
 export default async function PrintLabelsPage({ searchParams }: { searchParams: Search }) {
-  await requireAdmin();
+  const session = await requireAdmin();
 
   const { ids } = await searchParams;
   const orderIds = (ids ?? '')
@@ -33,13 +33,14 @@ export default async function PrintLabelsPage({ searchParams }: { searchParams: 
     orderBy: { createdAt: 'desc' },
     include: {
       items: true,
-      // Shipment/Payment don't carry a createdAt — `take: 1` picks whichever
-      // row exists. For orders with multiple shipments, sort by `shippedAt`
-      // once populated.
-      shipments: { take: 1 },
+      shipments: { orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: 1 },
       payments: { take: 1 },
     },
   });
+
+  const { stampLabelsPrintedForOrders } =
+    await import('@/server/services/fulfillment-print.service');
+  await stampLabelsPrintedForOrders(orderIds, session.sub);
 
   // Project Prisma rows to the plain `LabelOrder` shape the printable component expects.
   const orders: LabelOrder[] = rows.map((o) => ({

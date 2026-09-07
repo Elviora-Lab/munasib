@@ -149,6 +149,8 @@ export default async function AdminOrderDetailPage({
                         trackingStatusText: order.shipments[0].trackingStatusText,
                         trackingJourney: order.shipments[0].trackingJourney,
                         trackingSyncedAt: order.shipments[0].trackingSyncedAt,
+                        labelPrintedAt: order.shipments[0].labelPrintedAt,
+                        packedAt: order.shipments[0].packedAt,
                       }
                     : null
                 }

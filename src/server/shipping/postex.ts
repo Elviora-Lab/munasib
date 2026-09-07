@@ -462,19 +462,22 @@ export async function isPostExCityServiceable(city: string): Promise<boolean | n
 }
 
 // ---------------------------------------------------------------------------
-// Airway Bill (shipping label) — a printable PDF for up to 10 consignments.
+// Airway Bill (shipping label) — PostEx accepts ≤10 tracking numbers per
+// request; we chunk and merge so callers can print any selection size.
 // ---------------------------------------------------------------------------
 
-/** Fetch the PostEx AWB label PDF for one or more tracking numbers (max 10). */
-export async function getPostExAirwayBill(trackingNumbers: string[]): Promise<ArrayBuffer> {
-  const token = serverEnv.POSTEX_API_TOKEN;
-  if (!token) throw new Error('PostEx is not configured (POSTEX_API_TOKEN missing)');
+const POSTEX_AWB_CHUNK = 10;
 
-  const list = trackingNumbers
-    .slice(0, 10)
-    .map((t) => t.trim())
-    .filter(Boolean);
+/** Fetch one PostEx AWB PDF chunk (≤10 tracking numbers). */
+async function fetchPostExAirwayBillChunk(
+  token: string,
+  trackingNumbers: string[],
+): Promise<ArrayBuffer> {
+  const list = trackingNumbers.map((t) => t.trim()).filter(Boolean);
   if (list.length === 0) throw new Error('No tracking numbers provided');
+  if (list.length > POSTEX_AWB_CHUNK) {
+    throw new Error(`PostEx AWB chunk exceeds ${POSTEX_AWB_CHUNK} tracking numbers`);
+  }
 
   const qs = new URLSearchParams({ trackingNumbers: list.join(',') });
   // PostEx docs/SDK use hyphenated `get-invoice` — `getinvoice` returns HTTP 404.
@@ -500,6 +503,34 @@ export async function getPostExAirwayBill(trackingNumbers: string[]): Promise<Ar
     );
   }
   return res.arrayBuffer();
+}
+
+/** Fetch PostEx AWB label PDF(s) for any number of tracking numbers (merged). */
+export async function getPostExAirwayBill(trackingNumbers: string[]): Promise<ArrayBuffer> {
+  const token = serverEnv.POSTEX_API_TOKEN;
+  if (!token) throw new Error('PostEx is not configured (POSTEX_API_TOKEN missing)');
+
+  const list = [...new Set(trackingNumbers.map((t) => t.trim()).filter(Boolean))];
+  if (list.length === 0) throw new Error('No tracking numbers provided');
+
+  if (list.length <= POSTEX_AWB_CHUNK) {
+    return fetchPostExAirwayBillChunk(token, list);
+  }
+
+  const { PDFDocument } = await import('pdf-lib');
+  const merged = await PDFDocument.create();
+
+  for (let i = 0; i < list.length; i += POSTEX_AWB_CHUNK) {
+    const chunk = list.slice(i, i + POSTEX_AWB_CHUNK);
+    const bytes = await fetchPostExAirwayBillChunk(token, chunk);
+    const doc = await PDFDocument.load(bytes);
+    const pages = await merged.copyPages(doc, doc.getPageIndices());
+    for (const page of pages) merged.addPage(page);
+  }
+
+  const out = await merged.save();
+  // Copy into a fresh ArrayBuffer — pdf-lib's Uint8Array may share a larger buffer.
+  return out.slice().buffer;
 }
 
 /** Generate a PostEx load sheet PDF for a pickup handoff. */

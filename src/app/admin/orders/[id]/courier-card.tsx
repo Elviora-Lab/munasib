@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import {
   addManualShipment,
   bookWithPostEx,
+  bulkMarkPacked,
   cancelPostExBooking,
   refreshPostExPayment,
   refreshPostExTracking,
@@ -26,6 +27,8 @@ type Shipment = {
   trackingStatusText: string | null;
   trackingJourney: string | null;
   trackingSyncedAt: Date | null;
+  labelPrintedAt: Date | null;
+  packedAt: Date | null;
 } | null;
 
 export function CourierCard({
@@ -87,6 +90,19 @@ export function CourierCard({
     });
   }
 
+  function markPacked() {
+    start(async () => {
+      const res = await bulkMarkPacked({ orderIds: [orderId] });
+      if (res.success) {
+        if (res.data.packed > 0) toast.success('Marked packed');
+        else toast.message('Already packed or not booked');
+        router.refresh();
+      } else {
+        toast.error(res.message);
+      }
+    });
+  }
+
   function cancelBooking() {
     if (!confirmingCancel) {
       setConfirmingCancel(true);
@@ -106,6 +122,11 @@ export function CourierCard({
 
   if (shipment?.trackingNumber) {
     const tn = shipment.trackingNumber;
+    const stageLabel = shipment.packedAt
+      ? 'Packed'
+      : shipment.labelPrintedAt
+        ? 'Printed'
+        : 'Booked';
     return (
       <div className="flex flex-col gap-2 text-sm">
         <div>
@@ -115,6 +136,7 @@ export function CourierCard({
           <span className="text-muted-foreground">Tracking #:</span>{' '}
           <span className="font-mono">{tn}</span>
         </div>
+        <div className="text-xs text-muted-foreground">Floor stage: {stageLabel}</div>
         <div className="text-xs text-muted-foreground">
           Status: {status ?? shipment.trackingStatusText ?? shipment.shipmentStatus}
         </div>
@@ -156,6 +178,11 @@ export function CourierCard({
           >
             Print label
           </Button>
+          {!shipment.packedAt ? (
+            <Button size="sm" variant="outline" loading={pending} onClick={markPacked}>
+              Mark packed
+            </Button>
+          ) : null}
           <Button size="sm" variant="outline" loading={pending} onClick={checkSettlement}>
             Check COD
           </Button>

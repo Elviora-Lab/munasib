@@ -982,11 +982,22 @@ model Shipment {
   trackingSyncedAt   DateTime?      @map("tracking_synced_at") @db.Timestamptz
   shippedAt          DateTime?      @map("shipped_at") @db.Timestamptz
   deliveredAt        DateTime?      @map("delivered_at") @db.Timestamptz
+  /// When the courier booking / shipment row was created (book time).
+  createdAt          DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  /// Kitchen printed PostEx AWB or internal shipping labels.
+  labelPrintedAt     DateTime?      @map("label_printed_at") @db.Timestamptz
+  labelPrintedBy     String?        @map("label_printed_by") @db.Uuid
+  /// Staff marked the parcel packed / arranged.
+  packedAt           DateTime?      @map("packed_at") @db.Timestamptz
+  packedBy           String?        @map("packed_by") @db.Uuid
 
   order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   @@index([orderId])
   @@index([shipmentStatus])
+  @@index([createdAt])
+  @@index([labelPrintedAt])
+  @@index([packedAt])
   @@map("shipments")
 }
 

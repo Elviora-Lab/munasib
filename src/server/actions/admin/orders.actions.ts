@@ -147,7 +147,9 @@ export const bookWithPostEx = withAction(async (input: { orderId: string }) => {
 });
 
 const bulkBookBody = z.object({
-  orderIds: z.array(z.string().uuid()).min(1).max(50),
+  // Match bulk status / page selection size. Prefer client chunking for large
+  // batches so a single PostEx round-trip wave does not hit the action timeout.
+  orderIds: z.array(z.string().uuid()).min(1).max(200),
 });
 
 /**
@@ -177,6 +179,7 @@ export const bulkBookWithPostEx = withAction(async (input: z.infer<typeof bulkBo
     booked: booked.length,
     failed: failed.length,
     trackingNumbers: booked.map((b) => b.trackingNumber),
+    bookedOrderIds: booked.map((b) => b.orderId),
     errors: failed,
   };
 });
@@ -332,7 +335,7 @@ export const cancelPostExBooking = withAction(async (input: { orderId: string })
 });
 
 const trackingLookupBody = z.object({
-  orderIds: z.array(z.string().uuid()).min(1).max(50),
+  orderIds: z.array(z.string().uuid()).min(1).max(200),
 });
 
 /** Resolve PostEx tracking numbers for selected orders (for bulk label print). */
@@ -360,6 +363,67 @@ export const getPostExTrackingForOrders = withAction(
     };
   },
 );
+
+const fulfillmentIdsBody = z.object({
+  orderIds: z.array(z.string().uuid()).min(1).max(200),
+});
+
+/**
+ * Record that kitchen printed labels / PostEx AWBs for these orders.
+ * Idempotent — does not overwrite an earlier labelPrintedAt.
+ */
+export const markLabelsPrinted = withAction(async (input: z.infer<typeof fulfillmentIdsBody>) => {
+  const session = await requireAdmin();
+  const { orderIds } = fulfillmentIdsBody.parse(input);
+  const { stampLabelsPrintedForOrders } =
+    await import('@/server/services/fulfillment-print.service');
+  const updated = await stampLabelsPrintedForOrders(orderIds, session.sub);
+  revalidatePath('/admin/orders');
+  return { updated, requested: orderIds.length };
+});
+
+/**
+ * Mark selected orders as packed / arranged. Requires a booked shipment;
+ * stamps packedAt (and labelPrintedAt if somehow still null).
+ */
+export const bulkMarkPacked = withAction(async (input: z.infer<typeof fulfillmentIdsBody>) => {
+  const session = await requireAdmin();
+  const { orderIds } = fulfillmentIdsBody.parse(input);
+  const now = new Date();
+
+  const shipments = await prisma.shipment.findMany({
+    where: {
+      orderId: { in: orderIds },
+      trackingNumber: { not: null },
+      packedAt: null,
+    },
+    select: { id: true, orderId: true, labelPrintedAt: true },
+  });
+
+  if (shipments.length === 0) {
+    return { packed: 0, requested: orderIds.length, orderIds: [] as string[] };
+  }
+
+  await prisma.$transaction(
+    shipments.map((s) =>
+      prisma.shipment.update({
+        where: { id: s.id },
+        data: {
+          packedAt: now,
+          packedBy: session.sub,
+          ...(s.labelPrintedAt ? {} : { labelPrintedAt: now, labelPrintedBy: session.sub }),
+        },
+      }),
+    ),
+  );
+
+  revalidatePath('/admin/orders');
+  return {
+    packed: shipments.length,
+    requested: orderIds.length,
+    orderIds: [...new Set(shipments.map((s) => s.orderId))],
+  };
+});
 
 /**
  * Check whether PostEx has settled the COD cash for this order. When it has and

@@ -75,10 +75,13 @@ export function PostExDashboardClient({
     const numbers = list
       .split(/[\s,]+/)
       .map((t) => t.trim())
-      .filter(Boolean)
-      .slice(0, kind === 'label' ? 10 : undefined);
+      .filter(Boolean);
     if (!numbers.length) {
       toast.error('Add at least one tracking number');
+      return;
+    }
+    if (kind === 'label' && numbers.length > 200) {
+      toast.error('Too many tracking numbers for labels (max 200)');
       return;
     }
     const params = new URLSearchParams({ tracking: numbers.join(',') });

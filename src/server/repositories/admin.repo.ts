@@ -182,10 +182,95 @@ export const adminProductsRepo = {
 // ---------- Orders ----------
 
 export const adminOrdersRepo = {
-  list(opts: { status?: OrderStatus; q?: string; skip?: number; take?: number } = {}) {
+  list(
+    opts: {
+      status?: OrderStatus;
+      q?: string;
+      skip?: number;
+      take?: number;
+      /** Kitchen stage filter — only applied with status PROCESSING (or CONFIRMED for needs_booking). */
+      stage?: 'NEEDS_BOOKING' | 'BOOKED' | 'PRINTED' | 'PACKED' | 'LEFTOVER';
+    } = {},
+  ) {
     const q = opts.q?.trim();
+    const stage = opts.stage;
+
+    // Start of "today" in Asia/Karachi for leftover filtering.
+    const todayKey = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Karachi',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date());
+    const leftoverBefore = new Date(`${todayKey}T00:00:00+05:00`);
+
+    const stageWhere: Prisma.OrderWhereInput | undefined = (() => {
+      if (!stage) return undefined;
+      if (stage === 'NEEDS_BOOKING') {
+        return {
+          orderStatus: { in: ['CONFIRMED', 'PROCESSING'] },
+          OR: [
+            { shipments: { none: {} } },
+            { shipments: { none: { trackingNumber: { not: null } } } },
+          ],
+        };
+      }
+      if (stage === 'BOOKED') {
+        return {
+          orderStatus: 'PROCESSING',
+          shipments: {
+            some: {
+              trackingNumber: { not: null },
+              labelPrintedAt: null,
+            },
+          },
+        };
+      }
+      if (stage === 'PRINTED') {
+        return {
+          orderStatus: 'PROCESSING',
+          shipments: {
+            some: {
+              trackingNumber: { not: null },
+              labelPrintedAt: { not: null },
+              packedAt: null,
+            },
+          },
+        };
+      }
+      if (stage === 'PACKED') {
+        return {
+          orderStatus: 'PROCESSING',
+          shipments: {
+            some: {
+              trackingNumber: { not: null },
+              packedAt: { not: null },
+            },
+          },
+        };
+      }
+      // LEFTOVER — booked/printed/packed before today, still PROCESSING
+      return {
+        orderStatus: 'PROCESSING',
+        shipments: {
+          some: {
+            trackingNumber: { not: null },
+            OR: [
+              { packedAt: { not: null, lt: leftoverBefore } },
+              { packedAt: null, labelPrintedAt: { not: null, lt: leftoverBefore } },
+              {
+                packedAt: null,
+                labelPrintedAt: null,
+                createdAt: { lt: leftoverBefore },
+              },
+            ],
+          },
+        },
+      };
+    })();
+
     const where: Prisma.OrderWhereInput = {
-      ...(opts.status ? { orderStatus: opts.status } : {}),
+      ...(stageWhere ? stageWhere : opts.status ? { orderStatus: opts.status } : {}),
       ...(q
         ? {
             OR: [
@@ -207,16 +292,21 @@ export const adminOrdersRepo = {
           }
         : {}),
     };
+
+    // Leftover / stage views: oldest first so unfinished work surfaces.
+    const orderBy: Prisma.OrderOrderByWithRelationInput =
+      stage && stage !== 'NEEDS_BOOKING' ? { createdAt: 'asc' } : { createdAt: 'desc' };
+
     return prisma.$transaction([
       prisma.order.findMany({
         where,
-        orderBy: { createdAt: 'desc' },
+        orderBy,
         skip: opts.skip ?? 0,
         take: opts.take ?? 50,
         include: {
           user: { select: { email: true, firstName: true, lastName: true } },
           shipments: {
-            orderBy: [{ shippedAt: 'desc' }, { id: 'desc' }],
+            orderBy: [{ shippedAt: 'desc' }, { createdAt: 'desc' }, { id: 'desc' }],
             take: 1,
             select: {
               courierName: true,
@@ -225,6 +315,9 @@ export const adminOrdersRepo = {
               trackingStatusText: true,
               trackingJourney: true,
               trackingSyncedAt: true,
+              createdAt: true,
+              labelPrintedAt: true,
+              packedAt: true,
             },
           },
           _count: { select: { items: true } },
@@ -232,6 +325,74 @@ export const adminOrdersRepo = {
       }),
       prisma.order.count({ where }),
     ]);
+  },
+
+  /** Counts for Processing stage chips (Pakistan "today" for leftover). */
+  async fulfillmentStageCounts() {
+    const todayKey = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Karachi',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date());
+    const leftoverBefore = new Date(`${todayKey}T00:00:00+05:00`);
+
+    const [needsBooking, booked, printed, packed, leftover] = await Promise.all([
+      prisma.order.count({
+        where: {
+          orderStatus: { in: ['CONFIRMED', 'PROCESSING'] },
+          OR: [
+            { shipments: { none: {} } },
+            { shipments: { none: { trackingNumber: { not: null } } } },
+          ],
+        },
+      }),
+      prisma.order.count({
+        where: {
+          orderStatus: 'PROCESSING',
+          shipments: { some: { trackingNumber: { not: null }, labelPrintedAt: null } },
+        },
+      }),
+      prisma.order.count({
+        where: {
+          orderStatus: 'PROCESSING',
+          shipments: {
+            some: {
+              trackingNumber: { not: null },
+              labelPrintedAt: { not: null },
+              packedAt: null,
+            },
+          },
+        },
+      }),
+      prisma.order.count({
+        where: {
+          orderStatus: 'PROCESSING',
+          shipments: { some: { trackingNumber: { not: null }, packedAt: { not: null } } },
+        },
+      }),
+      prisma.order.count({
+        where: {
+          orderStatus: 'PROCESSING',
+          shipments: {
+            some: {
+              trackingNumber: { not: null },
+              OR: [
+                { packedAt: { not: null, lt: leftoverBefore } },
+                { packedAt: null, labelPrintedAt: { not: null, lt: leftoverBefore } },
+                {
+                  packedAt: null,
+                  labelPrintedAt: null,
+                  createdAt: { lt: leftoverBefore },
+                },
+              ],
+            },
+          },
+        },
+      }),
+    ]);
+
+    return { needsBooking, booked, printed, packed, leftover };
   },
 
   /**
