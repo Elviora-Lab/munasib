@@ -16,7 +16,11 @@ import {
   gaTrackPurchase,
   sessionIdFromGaSessionCookie,
 } from '@/server/analytics/ga-measurement-protocol';
-import { sendCapiEvent } from '@/server/analytics/meta-capi';
+import {
+  applyCapiCookies,
+  resolveCapiBrowserParams,
+  sendCapiEvent,
+} from '@/server/analytics/meta-capi';
 import { getSession } from '@/server/auth/get-session';
 import { getOrCreateGuestId } from '@/server/auth/guest-session';
 import { BadRequestError } from '@/server/http/errors';
@@ -171,12 +175,20 @@ export const placeOrder = withAction(async (raw: unknown) => {
   // re-emit here, or every order would trigger its side effects twice.
 
   // Meta Conversions API: server-side Purchase, deduplicated against the browser
-  // Purchase via event_id = order.id. Advanced matching from the order + the
-  // pixel cookies/headers. Best-effort — never blocks or fails the checkout.
-  // Request APIs are read up front (they're unavailable inside after()), then
-  // the HTTP call runs after the response so it never adds to checkout latency.
+  // Purchase via event_id = order.id. Match keys (fbc/fbp/IP + hashed PII) go
+  // through the Parameter Builder. Request APIs are read up front (unavailable
+  // inside after()); the HTTP call runs after the response.
   try {
     const [cookieStore, headerStore] = await Promise.all([cookies(), headers()]);
+    const browser = resolveCapiBrowserParams({
+      host: headerStore.get('x-forwarded-host') ?? headerStore.get('host'),
+      cookies: cookieStore,
+      referer: headerStore.get('referer'),
+      xForwardedFor: headerStore.get('x-forwarded-for'),
+      remoteAddress: headerStore.get('x-real-ip'),
+    });
+    await applyCapiCookies(browser.cookiesToSet);
+
     const [firstName, ...rest] = (shippingAddress.fullName ?? '').trim().split(/\s+/);
     const contentIds = order.items
       .map((i) => i.productId)
@@ -200,10 +212,10 @@ export const placeOrder = withAction(async (raw: unknown) => {
         city: shippingAddress.city,
         country: shippingAddress.country,
         externalId: session?.sub ?? sessionId,
-        clientIp: headerStore.get('x-forwarded-for')?.split(',')[0]?.trim() ?? null,
+        clientIp: browser.clientIp,
         userAgent: headerStore.get('user-agent'),
-        fbp: cookieStore.get('_fbp')?.value ?? null,
-        fbc: cookieStore.get('_fbc')?.value ?? null,
+        fbp: browser.fbp,
+        fbc: browser.fbc,
       },
       customData: {
         value: Number(order.totalAmount),

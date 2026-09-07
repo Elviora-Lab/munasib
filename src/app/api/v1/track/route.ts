@@ -3,7 +3,13 @@ import { z } from 'zod';
 
 import { prisma } from '@/lib/db';
 
-import { capiEnabled, type CapiUserData, sendCapiEvent } from '@/server/analytics/meta-capi';
+import {
+  applyCapiCookies,
+  capiEnabled,
+  type CapiUserData,
+  resolveCapiBrowserParams,
+  sendCapiEvent,
+} from '@/server/analytics/meta-capi';
 import { getSession } from '@/server/auth/get-session';
 import { getGuestId } from '@/server/auth/guest-session';
 import { createHandler } from '@/server/http/handler';
@@ -130,6 +136,15 @@ export const POST = createHandler(async (req) => {
 
   const match = await loadMatchData(session?.sub);
 
+  const browser = resolveCapiBrowserParams({
+    host: headerStore.get('x-forwarded-host') ?? headerStore.get('host'),
+    cookies: cookieStore,
+    referer: headerStore.get('referer') ?? body.eventSourceUrl ?? null,
+    xForwardedFor: headerStore.get('x-forwarded-for'),
+    remoteAddress: headerStore.get('x-real-ip'),
+  });
+  await applyCapiCookies(browser.cookiesToSet);
+
   await sendCapiEvent({
     eventName: body.event,
     eventId: body.eventId,
@@ -144,10 +159,10 @@ export const POST = createHandler(async (req) => {
       city: match.city ?? null,
       country: match.country ?? null,
       externalId: session?.sub ?? guestId,
-      clientIp: headerStore.get('x-forwarded-for')?.split(',')[0]?.trim() ?? null,
+      clientIp: browser.clientIp,
       userAgent: headerStore.get('user-agent'),
-      fbp: cookieStore.get('_fbp')?.value ?? null,
-      fbc: cookieStore.get('_fbc')?.value ?? null,
+      fbp: browser.fbp,
+      fbc: browser.fbc,
     },
     customData: body.customData,
   });

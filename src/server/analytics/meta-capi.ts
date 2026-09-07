@@ -1,6 +1,7 @@
 import 'server-only';
 
-import { ParamBuilder } from 'capi-param-builder-nodejs';
+import { cookies } from 'next/headers';
+import { type CookieSettings, ParamBuilder } from 'capi-param-builder-nodejs';
 
 import { isProd, publicEnv, serverEnv } from '@/config/env';
 
@@ -13,6 +14,10 @@ import { normalizeCurrencyCode } from '@/lib/currency';
  * also send the important conversions from the server. Each server event shares
  * an `event_id` with its browser counterpart so Meta deduplicates the pair.
  *
+ * Match keys (`fbc` / `fbp` / `client_ip_address` / hashed PII) go through Meta's
+ * Parameter Builder so values carry the library appendix and follow Meta's
+ * formatting rules — lifting Event Match Quality vs hand-rolled cookie/IP reads.
+ *
  * No-ops safely unless `META_CAPI_ACCESS_TOKEN` and a pixel id are configured.
  */
 
@@ -24,10 +29,8 @@ export function capiEnabled(): boolean {
   return Boolean(isProd && serverEnv.META_CAPI_ACCESS_TOKEN && publicEnv.NEXT_PUBLIC_FB_PIXEL_ID);
 }
 
-// Meta's Conversions API Parameter Builder owns normalization + SHA-256 hashing
-// (per-field rules + the EMQ "appendix"). It's stateless for hashing, so one
-// instance is reused. The domain list only affects cookies-to-set (unused here),
-// but we pass the real host so the instance is well-formed.
+// Domain list for ParamBuilder cookie scoping (ETLD+1). Used for both PII
+// hashing (stateless) and per-request processRequest (stateful — new instance).
 const PB_DOMAINS = (() => {
   try {
     return [new URL(publicEnv.NEXT_PUBLIC_SITE_URL).hostname, 'localhost'];
@@ -35,7 +38,9 @@ const PB_DOMAINS = (() => {
     return ['localhost'];
   }
 })();
-const paramBuilder = new ParamBuilder(PB_DOMAINS);
+
+/** Shared hasher only — never call processRequest on this instance (races). */
+const piiBuilder = new ParamBuilder(PB_DOMAINS);
 
 /**
  * Normalize + SHA-256 a customer-info value via the Parameter Builder. The
@@ -47,7 +52,7 @@ const paramBuilder = new ParamBuilder(PB_DOMAINS);
 function pii(value: string | null | undefined, dataType: string): string | undefined {
   if (!value) return undefined;
   try {
-    return paramBuilder.getNormalizedAndHashedPII(value, dataType) ?? undefined;
+    return piiBuilder.getNormalizedAndHashedPII(value, dataType) ?? undefined;
   } catch {
     return undefined;
   }
@@ -61,12 +66,103 @@ export type CapiUserData = {
   city?: string | null;
   country?: string | null;
   externalId?: string | null;
+  /**
+   * Prefer the value from {@link resolveCapiBrowserParams} (includes Meta's
+   * appendix). Raw IPs still work but score lower.
+   */
   clientIp?: string | null;
   userAgent?: string | null;
-  /** _fbp / _fbc cookies — passed through unhashed for best match rates. */
+  /** From ParamBuilder — do not lowercase or reformat. */
   fbp?: string | null;
   fbc?: string | null;
 };
+
+export type CapiBrowserParams = {
+  fbp: string | null;
+  fbc: string | null;
+  /** Best public IPv6/IPv4 from `_fbi` cookie + request, with appendix. */
+  clientIp: string | null;
+  cookiesToSet: CookieSettings[];
+};
+
+type CookieReader =
+  | Record<string, string>
+  | { get: (name: string) => { value: string } | undefined };
+
+function cookieMapFrom(cookiesIn: CookieReader): Record<string, string> {
+  if (typeof (cookiesIn as { get?: unknown }).get === 'function') {
+    const store = cookiesIn as { get: (name: string) => { value: string } | undefined };
+    const out: Record<string, string> = {};
+    for (const name of ['_fbp', '_fbc', '_fbi']) {
+      const v = store.get(name)?.value;
+      if (v) out[name] = v;
+    }
+    return out;
+  }
+  return { ...(cookiesIn as Record<string, string>) };
+}
+
+/**
+ * Run Meta's server Parameter Builder over the current request so `fbc` / `fbp`
+ * / `client_ip_address` are validated, appendix-tagged, and (when needed)
+ * generated from `fbclid`. Prefer IPv6 from the client `_fbi` cookie when the
+ * client param builder captured it; otherwise fall back to request headers.
+ *
+ * Fresh ParamBuilder per call — processRequest mutates instance state.
+ */
+export function resolveCapiBrowserParams(input: {
+  host?: string | null;
+  cookies: CookieReader;
+  query?: Record<string, string> | null;
+  referer?: string | null;
+  xForwardedFor?: string | null;
+  remoteAddress?: string | null;
+}): CapiBrowserParams {
+  try {
+    const builder = new ParamBuilder(PB_DOMAINS);
+    const host = (input.host?.split(',')[0]?.trim() || PB_DOMAINS[0] || 'localhost').replace(
+      /:\d+$/,
+      '',
+    );
+    const cookiesToSet = builder.processRequest(
+      host,
+      input.query ?? null,
+      cookieMapFrom(input.cookies),
+      input.referer ?? null,
+      input.xForwardedFor ?? null,
+      input.remoteAddress ?? null,
+    );
+    return {
+      fbc: builder.getFbc(),
+      fbp: builder.getFbp(),
+      clientIp: builder.getClientIpAddress(),
+      cookiesToSet,
+    };
+  } catch {
+    return { fbc: null, fbp: null, clientIp: null, cookiesToSet: [] };
+  }
+}
+
+/** Persist ParamBuilder cookie recommendations (`_fbp` / `_fbc` / `_fbi`). */
+export async function applyCapiCookies(cookiesToSet: CookieSettings[]): Promise<void> {
+  if (!cookiesToSet.length) return;
+  try {
+    const store = await cookies();
+    for (const c of cookiesToSet) {
+      store.set(c.name, c.value, {
+        maxAge: c.maxAge,
+        ...(c.domain ? { domain: c.domain } : {}),
+        path: '/',
+        sameSite: 'lax',
+        secure: isProd,
+        // Must stay readable by the browser pixel + client param builder.
+        httpOnly: false,
+      });
+    }
+  } catch {
+    // Cookie writes can fail in some RSC/edge contexts — tracking is best-effort.
+  }
+}
 
 function buildUserData(u: CapiUserData): Record<string, unknown> {
   const data: Record<string, unknown> = {};
@@ -84,6 +180,8 @@ function buildUserData(u: CapiUserData): Record<string, unknown> {
   if (ct) data.ct = [ct];
   if (country) data.country = [country];
   if (externalId) data.external_id = [externalId];
+  // client_ip_address must never be hashed — ParamBuilder may already append
+  // the library token (e.g. `1.2.3.4.AQQ…`); send through as-is.
   if (u.clientIp) data.client_ip_address = u.clientIp;
   if (u.userAgent) data.client_user_agent = u.userAgent;
   if (u.fbp) data.fbp = u.fbp;
