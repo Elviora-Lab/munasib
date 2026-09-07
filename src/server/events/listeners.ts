@@ -7,15 +7,11 @@ import { prisma } from '@/lib/db';
 import { events } from './bus';
 
 import { analyticsServer } from '@/server/analytics';
-import { signReviewToken } from '@/server/auth/tokens';
 import { sendEmail } from '@/server/email';
-import { orderCancelledEmail } from '@/server/email/templates/order-cancelled';
 import {
   formatShippingAddressHtml,
   orderConfirmationEmail,
 } from '@/server/email/templates/order-confirmation';
-import { orderDeliveredEmail } from '@/server/email/templates/order-delivered';
-import { orderShippedEmail } from '@/server/email/templates/order-shipped';
 import { welcomeEmail } from '@/server/email/templates/welcome';
 import { notifyUser } from '@/server/notifications';
 
@@ -108,7 +104,7 @@ export function registerEventListeners() {
         userId,
         type: 'ORDER_UPDATE',
         title: 'Order received',
-        message: `We've received order ${order.orderNumber} and will email you once it ships.`,
+        message: `We've received order ${order.orderNumber}.`,
       });
     }
 
@@ -172,15 +168,8 @@ export function registerEventListeners() {
         }.`,
       });
     }
-    if (order.email) {
-      const { subject, html, text } = orderShippedEmail({
-        orderNumber: order.orderNumber,
-        orderUrl: publicOrderUrl(orderId),
-        courierName: shipment?.courierName,
-        trackingNumber: shipment?.trackingNumber,
-      });
-      await sendEmail({ to: order.email, subject, html, text });
-    }
+    // Shipped / delivered / cancelled emails are paused for now — only
+    // order-placement confirmation emails go out.
   });
 
   events.on('order.delivered', async ({ orderId }) => {
@@ -194,16 +183,7 @@ export function registerEventListeners() {
         message: `Order ${order.orderNumber} has been delivered. Enjoy!`,
       });
     }
-    if (order.email) {
-      // Signed, no-login review link (verified purchase) so guests can review.
-      const reviewUrl = `${siteConfig.url}/review?token=${await signReviewToken(orderId)}`;
-      const { subject, html, text } = orderDeliveredEmail({
-        orderNumber: order.orderNumber,
-        orderUrl: publicOrderUrl(orderId),
-        reviewUrl,
-      });
-      await sendEmail({ to: order.email, subject, html, text });
-    }
+    // Delivered emails paused with shipped/cancelled — placement only for now.
   });
 
   events.on('order.cancelled', async ({ orderId }) => {
@@ -217,13 +197,6 @@ export function registerEventListeners() {
         message: `Order ${order.orderNumber} was cancelled.`,
       });
     }
-    if (order.email) {
-      const wasPaid = order.paymentStatus === 'PAID';
-      const { subject, html, text } = orderCancelledEmail({
-        orderNumber: order.orderNumber,
-        wasPaid,
-      });
-      await sendEmail({ to: order.email, subject, html, text });
-    }
+    // Cancelled emails paused with shipped/delivered — placement only for now.
   });
 }
