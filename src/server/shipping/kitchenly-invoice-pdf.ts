@@ -19,6 +19,10 @@ export type InvoiceLine = {
 export type InvoiceOrder = {
   orderNumber: string;
   createdAt: Date;
+  subtotal: number;
+  shippingFee: number;
+  discountAmount: number;
+  discountLabel: string | null;
   totalAmount: number;
   currency: string;
   shippingFullName: string | null;
@@ -280,7 +284,30 @@ export async function buildKitchenlyInvoicePdf(order: InvoiceOrder): Promise<Uin
     y -= ROW_H;
   }
 
-  ensureSpace(40);
+  const linesSubtotal = order.items.reduce((sum, line) => {
+    const lineTotal = line.totalPrice > 0 ? line.totalPrice : line.unitPrice * line.quantity;
+    return sum + lineTotal;
+  }, 0);
+  const subtotal = order.subtotal > 0 ? order.subtotal : linesSubtotal;
+  const shippingFee = Math.max(0, order.shippingFee);
+  const discount = Math.max(0, order.discountAmount);
+  const shippingDisplay = shippingFee === 0 ? 'Free' : money(shippingFee, order.currency);
+
+  const summaryRows: Array<{ label: string; value: string; bold?: boolean }> = [
+    { label: 'Subtotal', value: money(subtotal, order.currency) },
+    { label: 'Shipping', value: shippingDisplay },
+  ];
+  if (discount > 0) {
+    const label = order.discountLabel?.trim() ? `Discount (${order.discountLabel})` : 'Discount';
+    summaryRows.push({ label, value: `−${money(discount, order.currency)}` });
+  }
+  summaryRows.push({
+    label: 'Total',
+    value: money(order.totalAmount, order.currency),
+    bold: true,
+  });
+
+  ensureSpace(24 + summaryRows.length * 18);
   y += ROW_H - 16;
   page.drawLine({
     start: { x: MARGIN, y },
@@ -288,18 +315,24 @@ export async function buildKitchenlyInvoicePdf(order: InvoiceOrder): Promise<Uin
     thickness: 1.5,
     color: rgb(0, 0, 0),
   });
-  y -= 22;
-  const totalLabel = 'Total';
-  const totalValue = money(order.totalAmount, order.currency);
-  drawText(page, totalLabel, MARGIN, y, 12, fontBold);
-  drawText(
-    page,
-    totalValue,
-    PAGE_W - MARGIN - fontBold.widthOfTextAtSize(totalValue, 13),
-    y,
-    13,
-    fontBold,
-  );
+  y -= 18;
+
+  for (const row of summaryRows) {
+    ensureSpace(22);
+    const useFont = row.bold ? fontBold : font;
+    const size = row.bold ? 12 : 10;
+    const valueSize = row.bold ? 13 : 10;
+    drawText(page, row.label, MARGIN, y, size, useFont);
+    drawText(
+      page,
+      row.value,
+      PAGE_W - MARGIN - useFont.widthOfTextAtSize(row.value, valueSize),
+      y,
+      valueSize,
+      useFont,
+    );
+    y -= row.bold ? 20 : 16;
+  }
 
   return doc.save();
 }

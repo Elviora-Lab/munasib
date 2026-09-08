@@ -61,6 +61,10 @@ function toInvoiceOrder(
   return {
     orderNumber: order.orderNumber,
     createdAt: order.createdAt,
+    subtotal: Number(order.subtotal),
+    shippingFee: Number(order.shippingFee),
+    discountAmount: Number(order.discountAmount),
+    discountLabel: order.discountLabel,
     totalAmount: Number(order.totalAmount),
     currency: order.currency,
     shippingFullName: order.shippingFullName,
