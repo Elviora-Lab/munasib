@@ -141,6 +141,20 @@ export function OrdersTable({ rows }: { rows: Row[] }) {
     });
   }
 
+  function printPackingChecklist() {
+    if (selectedIds.length === 0) return;
+    const ids = selectedIds.join(',');
+    window.open(`/admin/orders/packing-checklist?ids=${encodeURIComponent(ids)}`, '_blank');
+    start(async () => {
+      await markLabelsPrinted({ orderIds: selectedIds });
+      toast.success(
+        `Printing ${selectedIds.length} pack${selectedIds.length === 1 ? '' : 's'} (checklist + label)`,
+      );
+      setSelected(new Set());
+      router.refresh();
+    });
+  }
+
   function bookSelectedWithPostEx() {
     if (selectedIds.length === 0) return;
     const toBook = selectedRows
@@ -312,6 +326,14 @@ export function OrdersTable({ rows }: { rows: Row[] }) {
           </Button>
           <Button size="sm" variant="outline" onClick={printSelected} disabled={!canPrint}>
             <Printer className="size-3.5" /> Print labels
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={printPackingChecklist}
+            disabled={selectedIds.length === 0}
+          >
+            <Printer className="size-3.5" /> Pack + label
           </Button>
           <Button
             size="sm"
