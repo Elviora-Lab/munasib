@@ -5,11 +5,13 @@ import { useEffect, useRef } from 'react';
 import { analytics, type GaItem } from '@/lib/analytics';
 
 /**
- * Fires the Purchase event once when the order-confirmation page loads (Meta
- * Pixel Purchase + GA4 `purchase`). Lives in a client component because the
- * success page is a Server Component. One-shot per mount so a refresh doesn't
- * re-fire it in the same view; `orderId` also dedupes downstream (Pixel eventID
- * / GA4 transaction_id).
+ * Fires GA4 `purchase` once when the order-confirmation page loads.
+ *
+ * Meta Purchase is intentionally NOT fired here — Conversions API already
+ * sends it from `placeOrder` with `event_id = order.id`. Dual Pixel+CAPI
+ * Purchase was over-counting in Meta Ads when dedupe failed.
+ *
+ * sessionStorage guards against success-page refresh double-firing GA.
  */
 export function PurchaseTracker({
   orderId,
@@ -24,7 +26,7 @@ export function PurchaseTracker({
   orderId: string;
   value: number;
   currency: string;
-  /** Total quantity across the order (Meta's num_items). */
+  /** Total quantity across the order (kept for call-site compatibility). */
   items: number;
   tax?: number;
   shipping?: number;
@@ -35,6 +37,13 @@ export function PurchaseTracker({
   const sent = useRef(false);
   useEffect(() => {
     if (sent.current) return;
+    const key = `kitchenly:purchase-tracked:${orderId}`;
+    try {
+      if (typeof sessionStorage !== 'undefined' && sessionStorage.getItem(key)) return;
+      sessionStorage?.setItem(key, '1');
+    } catch {
+      /* private mode — fall through with ref-only guard */
+    }
     sent.current = true;
     analytics.purchase({
       orderId,

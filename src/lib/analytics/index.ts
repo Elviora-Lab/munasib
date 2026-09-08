@@ -11,10 +11,10 @@ import { metaPixel } from './meta-pixel';
  * Analytics 4 (`@/lib/analytics/google`). Each destination self-guards (no-ops
  * until its script has loaded, production only), so call sites stay clean.
  *
- * The Meta calls are intentionally identical to what the call sites fired
- * before this facade existed — in particular `purchase` keeps `orderId` as the
- * Pixel `eventID` so it still dedupes against the server-side Conversions API.
- * To add another destination later (e.g. a server beacon), add it here once.
+ * The Meta funnel events (ViewContent, ATC, …) share a browser `eventID` with
+ * their CAPI twins for dedupe. Purchase is CAPI-only from `placeOrder` — dual
+ * Pixel+CAPI Purchase was over-counting in Ads Manager when Meta failed to
+ * dedupe. To add another destination later, add it here once.
  */
 
 function redactDevPayload(payload: unknown): unknown {
@@ -333,13 +333,10 @@ export const analytics = {
     items?: GaItem[];
   }) {
     logDev('purchase', p);
-    metaPixel.purchase({
-      orderId: p.orderId,
-      value: p.value,
-      currency: p.currency,
-      items: p.count,
-      contents: metaContents(p.items),
-    });
+    // Meta Purchase is sent server-side only (CAPI from placeOrder) with
+    // event_id = order.id. Firing the browser Pixel Purchase as well was
+    // double-counting in Ads Manager when Meta failed to dedupe the pair —
+    // ~117% of real orders. GA4 still fires here; it dedupes on transaction_id.
     ga.purchase({
       orderId: p.orderId,
       value: p.value,

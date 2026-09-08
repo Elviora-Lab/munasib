@@ -174,10 +174,10 @@ export const placeOrder = withAction(async (raw: unknown) => {
   // `order.created` is emitted once by ordersService.createFromCart — do not
   // re-emit here, or every order would trigger its side effects twice.
 
-  // Meta Conversions API: server-side Purchase, deduplicated against the browser
-  // Purchase via event_id = order.id. Match keys (fbc/fbp/IP + hashed PII) go
-  // through the Parameter Builder. Request APIs are read up front (unavailable
-  // inside after()); the HTTP call runs after the response.
+  // Meta Conversions API: sole Purchase signal (no browser Pixel Purchase).
+  // Dual Pixel+CAPI with shared event_id was still double-counting in Ads
+  // Manager for some orders. Match keys go through the Parameter Builder.
+  // Request APIs are read up front (unavailable inside after()).
   try {
     const [cookieStore, headerStore] = await Promise.all([cookies(), headers()]);
     const browser = resolveCapiBrowserParams({
