@@ -141,16 +141,30 @@ export function OrdersTable({ rows }: { rows: Row[] }) {
     });
   }
 
-  function printPackingChecklist() {
+  /** Kitchenly invoice (photos) + PostEx AWB, interleaved per order. */
+  function printInvoiceAndAwb() {
     if (selectedIds.length === 0) return;
-    const ids = selectedIds.join(',');
-    window.open(`/admin/orders/packing-checklist?ids=${encodeURIComponent(ids)}`, '_blank');
+    const printable = selectedRows
+      .filter((r) => Boolean(r.shipment?.trackingNumber))
+      .map((r) => r.id);
+    if (printable.length === 0) {
+      toast.error('No PostEx tracking on the selected orders — book first');
+      return;
+    }
+    const popup = window.open('about:blank', '_blank');
     start(async () => {
-      await markLabelsPrinted({ orderIds: selectedIds });
+      const url = `/api/v1/admin/orders/invoice-awb?ids=${encodeURIComponent(printable.join(','))}`;
+      if (popup && !popup.closed) {
+        popup.location.href = url;
+      } else {
+        window.open(url, '_blank', 'noopener,noreferrer');
+      }
+      const skip = selectedIds.length - printable.length;
       toast.success(
-        `Printing ${selectedIds.length} pack${selectedIds.length === 1 ? '' : 's'} (checklist + label)`,
+        `Printing ${printable.length} invoice${printable.length === 1 ? '' : 's'} + PostEx AWB${skip > 0 ? ` (${skip} skipped — not booked)` : ''}`,
       );
-      setSelected(new Set());
+      const unbooked = selectedRows.filter((r) => !r.shipment?.trackingNumber).map((r) => r.id);
+      keepOnly(unbooked);
       router.refresh();
     });
   }
@@ -330,10 +344,11 @@ export function OrdersTable({ rows }: { rows: Row[] }) {
           <Button
             size="sm"
             variant="outline"
-            onClick={printPackingChecklist}
-            disabled={selectedIds.length === 0}
+            onClick={printInvoiceAndAwb}
+            loading={pending}
+            disabled={!canPrint}
           >
-            <Printer className="size-3.5" /> Pack + label
+            <Printer className="size-3.5" /> Invoice + AWB
           </Button>
           <Button
             size="sm"
