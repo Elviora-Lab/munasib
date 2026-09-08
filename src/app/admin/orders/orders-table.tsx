@@ -23,8 +23,6 @@ import {
   bulkBookWithPostEx,
   bulkMarkPacked,
   bulkUpdateOrderStatus,
-  getPostExTrackingForOrders,
-  markLabelsPrinted,
 } from '@/server/actions/admin/orders.actions';
 
 type Row = {
@@ -129,18 +127,6 @@ export function OrdersTable({ rows }: { rows: Row[] }) {
     });
   }
 
-  function printSelected() {
-    if (selectedIds.length === 0) return;
-    const ids = selectedIds.join(',');
-    window.open(`/admin/orders/labels?ids=${encodeURIComponent(ids)}`, '_blank');
-    start(async () => {
-      await markLabelsPrinted({ orderIds: selectedIds });
-      toast.success(`Printing ${selectedIds.length} label${selectedIds.length === 1 ? '' : 's'}`);
-      setSelected(new Set());
-      router.refresh();
-    });
-  }
-
   /** Kitchenly invoice (photos) + PostEx AWB, interleaved per order. */
   function printInvoiceAndAwb() {
     if (selectedIds.length === 0) return;
@@ -223,43 +209,6 @@ export function OrdersTable({ rows }: { rows: Row[] }) {
     });
   }
 
-  function printSelectedPostExLabels() {
-    if (selectedIds.length === 0) return;
-    const popup = window.open('about:blank', '_blank');
-    start(async () => {
-      const result = await getPostExTrackingForOrders({ orderIds: selectedIds });
-      if (!result.success) {
-        popup?.close();
-        toast.error(result.message);
-        return;
-      }
-      const { trackingNumbers, missing } = result.data;
-      if (trackingNumbers.length === 0) {
-        popup?.close();
-        toast.error('No PostEx tracking numbers on the selected orders — book first');
-        return;
-      }
-      if (missing > 0) {
-        toast.message(`${missing} selected order(s) have no PostEx booking yet`);
-      }
-      const url = `/api/v1/admin/postex/label?tracking=${encodeURIComponent(trackingNumbers.join(','))}`;
-      if (popup && !popup.closed) {
-        popup.location.href = url;
-      } else {
-        window.open(url, '_blank', 'noopener,noreferrer');
-      }
-
-      // API stamps print state; refresh so rows move Booked → Printed.
-      toast.success(
-        `Printing ${trackingNumbers.length} PostEx AWB${trackingNumbers.length === 1 ? '' : 's'}`,
-      );
-      // Keep unbooked selection; clear those that had tracking.
-      const unbooked = selectedRows.filter((r) => !r.shipment?.trackingNumber).map((r) => r.id);
-      keepOnly(unbooked);
-      router.refresh();
-    });
-  }
-
   function markSelectedPacked() {
     if (selectedIds.length === 0) return;
     const noun = `${selectedIds.length} order${selectedIds.length === 1 ? '' : 's'}`;
@@ -328,18 +277,6 @@ export function OrdersTable({ rows }: { rows: Row[] }) {
             disabled={!canBook}
           >
             Book PostEx ({selectedIds.length})
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={printSelectedPostExLabels}
-            loading={pending}
-            disabled={!canPrint}
-          >
-            <Printer className="size-3.5" /> PostEx AWB
-          </Button>
-          <Button size="sm" variant="outline" onClick={printSelected} disabled={!canPrint}>
-            <Printer className="size-3.5" /> Print labels
           </Button>
           <Button
             size="sm"

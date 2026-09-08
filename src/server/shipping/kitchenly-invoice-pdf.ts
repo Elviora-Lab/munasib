@@ -19,6 +19,9 @@ export type InvoiceLine = {
 export type InvoiceOrder = {
   orderNumber: string;
   createdAt: Date;
+  trackingNumber: string | null;
+  paymentMethod: string | null;
+  paymentStatus: string;
   subtotal: number;
   shippingFee: number;
   discountAmount: number;
@@ -161,8 +164,20 @@ export async function buildKitchenlyInvoicePdf(order: InvoiceOrder): Promise<Uin
     font,
     rgb(0.4, 0.4, 0.4),
   );
+  if (order.trackingNumber) {
+    const trackLabel = `AWB ${order.trackingNumber}`;
+    drawText(
+      page,
+      trackLabel,
+      PAGE_W - MARGIN - font.widthOfTextAtSize(trackLabel, 8),
+      y - 48,
+      8,
+      font,
+      rgb(0.35, 0.35, 0.35),
+    );
+  }
 
-  y -= 56;
+  y -= order.trackingNumber ? 66 : 56;
   page.drawLine({
     start: { x: MARGIN, y },
     end: { x: PAGE_W - MARGIN, y },
@@ -170,6 +185,30 @@ export async function buildKitchenlyInvoicePdf(order: InvoiceOrder): Promise<Uin
     color: rgb(0, 0, 0),
   });
   y -= 18;
+
+  // Payment callout — COD amount to collect, or prepaid method.
+  const isCod = order.paymentMethod === 'COD';
+  const paymentLine = isCod
+    ? `Cash on Delivery — ${money(order.totalAmount, order.currency)}`
+    : order.paymentStatus === 'PAID'
+      ? `Paid · ${order.paymentMethod ?? 'Prepaid'}`
+      : `Payment · ${order.paymentMethod ?? order.paymentStatus}`;
+  const payBoxPadX = 10;
+  const payBoxPadY = 6;
+  const paySize = isCod ? 11 : 9;
+  const payFont = isCod ? fontBold : font;
+  const payW = payFont.widthOfTextAtSize(paymentLine, paySize) + payBoxPadX * 2;
+  const payH = paySize + payBoxPadY * 2;
+  page.drawRectangle({
+    x: MARGIN,
+    y: y - payH + 4,
+    width: payW,
+    height: payH,
+    borderColor: rgb(0, 0, 0),
+    borderWidth: isCod ? 1.5 : 0.8,
+  });
+  drawText(page, paymentLine, MARGIN + payBoxPadX, y - payH + 4 + payBoxPadY, paySize, payFont);
+  y -= payH + 12;
 
   if (order.shippingFullName) {
     drawText(page, 'Bill to', MARGIN, y, 8, font, rgb(0.45, 0.45, 0.45));

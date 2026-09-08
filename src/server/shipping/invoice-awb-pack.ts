@@ -51,6 +51,11 @@ async function loadOrdersForInvoicePack(orderIds: string[]) {
         take: 1,
         select: { trackingNumber: true },
       },
+      payments: {
+        orderBy: { id: 'desc' },
+        take: 1,
+        select: { paymentMethod: true, paymentStatus: true },
+      },
     },
   });
 }
@@ -58,9 +63,13 @@ async function loadOrdersForInvoicePack(orderIds: string[]) {
 function toInvoiceOrder(
   order: Awaited<ReturnType<typeof loadOrdersForInvoicePack>>[number],
 ): InvoiceOrder {
+  const payment = order.payments[0];
   return {
     orderNumber: order.orderNumber,
     createdAt: order.createdAt,
+    trackingNumber: order.shipments[0]?.trackingNumber?.trim() ?? null,
+    paymentMethod: payment?.paymentMethod ?? null,
+    paymentStatus: payment?.paymentStatus ?? order.paymentStatus,
     subtotal: Number(order.subtotal),
     shippingFee: Number(order.shippingFee),
     discountAmount: Number(order.discountAmount),
