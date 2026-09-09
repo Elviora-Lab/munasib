@@ -10,4 +10,6 @@ export const cacheTags = {
   productReviews: (productId: string) => `product-reviews:${productId}`,
   categories: 'categories',
   category: (slug: string) => `category:${slug}`,
+  /** Site-wide flash-sale display summary (short TTL). */
+  flashSale: 'flash-sale',
 } as const;

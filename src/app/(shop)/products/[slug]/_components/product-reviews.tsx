@@ -13,7 +13,8 @@ type ReviewRow = {
   title: string | null;
   comment: string | null;
   isVerifiedPurchase: boolean;
-  createdAt: Date;
+  /** ISO string from cached PDP DTO, or Date from legacy callers. */
+  createdAt: string | Date;
   authorName: string | null;
   user: { firstName: string | null; lastName: string | null } | null;
   images: { id: string; imageUrl: string }[];

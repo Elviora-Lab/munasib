@@ -1,6 +1,6 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { z } from 'zod';
 
 import {
@@ -13,6 +13,7 @@ import { parseStoreDateTimeInput } from '@/utils/time';
 import { withAction } from '../_with-action';
 
 import { requireAdmin } from '@/server/auth/guards';
+import { cacheTags } from '@/server/cache/tags';
 import { BadRequestError, NotFoundError } from '@/server/http/errors';
 import { adminFlashSaleRepo } from '@/server/repositories/flash-sale.repo';
 import { flashSaleService } from '@/server/services/flash-sale.service';
@@ -55,11 +56,15 @@ const itemsBody = z.object({
     .max(MAX_FLASH_SALE_ITEMS, `A flash sale can hold at most ${MAX_FLASH_SALE_ITEMS} products`),
 });
 
-/** Every write invalidates the cached storefront sale and re-renders both pages. */
+/** Every write invalidates Redis display + Data Cache flash tag + PDP ISR HTML. */
 async function afterWrite() {
   await flashSaleService.invalidateDisplay();
+  revalidateTag(cacheTags.flashSale, 'max');
   revalidatePath('/admin/flash-sale');
   revalidatePath('/');
+  // Tag busts `getProductPageData`; Full Route Cache is separate — also expire
+  // every public PDP shell that may render flash pricing/countdown.
+  revalidatePath('/products/[slug]', 'page');
 }
 
 export const createFlashSale = withAction(async (input: z.input<typeof windowBody>) => {

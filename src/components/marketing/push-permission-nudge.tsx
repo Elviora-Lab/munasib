@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { Bell, BellRing } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { analytics } from '@/lib/analytics';
 import {
   firebasePushConfigured,
   requestPushSubscription,
@@ -149,14 +150,17 @@ export function PushPermissionNudge() {
     } catch {
       /* continue */
     }
+    // One first-party marketing POST (CartHasItems) + Pixel/CAPI high-intent.
+    // Do not also call trackHighIntent() — that POSTs HighIntentVisitor and
+    // would double-apply scoreDelta 12 for the same cart moment.
     trackVisitorEvent({
       eventName: 'CartHasItems',
       value: subtotal,
       currency: 'PKR',
       scoreDelta: 12,
-      metadata: { itemCount: count },
+      metadata: { itemCount: count, highIntentReason: 'cart_has_items' },
     });
-    trackHighIntent('cart_has_items', 12);
+    analytics.highIntentVisitor({ reason: 'cart_has_items', score: 12 });
   }, [count, eligiblePath, subtotal]);
 
   useEffect(() => {

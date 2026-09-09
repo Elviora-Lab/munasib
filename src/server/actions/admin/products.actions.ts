@@ -487,6 +487,8 @@ export const bulkImportProducts = withAction(async (input: { rows: unknown[] }) 
 
   revalidatePath('/admin/products');
   revalidatePath('/products');
+  // Per-slug tags were busted in the loop; expire ISR HTML for all PDPs too.
+  revalidatePath('/products/[slug]', 'page');
   return { created, updated, failed };
 });
 
@@ -734,16 +736,23 @@ export const importShopifyProducts = withAction(
     // Full-catalog mode: anything not in this file goes dark (reversible).
     let deactivated = 0;
     if (deactivateOthers && importedSlugs.length > 0) {
+      const toHide = await prisma.product.findMany({
+        where: { slug: { notIn: importedSlugs }, isActive: true },
+        select: { slug: true },
+      });
       const res = await prisma.product.updateMany({
         where: { slug: { notIn: importedSlugs }, isActive: true },
         data: { isActive: false },
       });
       deactivated = res.count;
+      await Promise.all(toHide.map((p) => productsService.invalidate(p.slug)));
     }
 
     revalidatePath('/admin/products');
     revalidatePath('/products');
     revalidatePath('/');
+    // Imported/deactivated rows already had tag busts; expire PDP ISR shells too.
+    revalidatePath('/products/[slug]', 'page');
     return { created, updated, failed, deactivated, errors: errors.slice(0, 20) };
   },
 );

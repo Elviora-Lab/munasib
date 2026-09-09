@@ -10,6 +10,7 @@ import { withAction } from '../_with-action';
 
 import { requireAbility } from '@/server/auth/guards';
 import { NotFoundError } from '@/server/http/errors';
+import { productsService } from '@/server/services/products.service';
 import { purchasingService } from '@/server/services/purchasing.service';
 
 // ---------------------------------------------------------------------------
@@ -327,6 +328,15 @@ export const receivePurchaseOrder = withAction(async (input: z.input<typeof rece
     note: data.note ?? null,
     receivedBy: session.sub,
   });
+
+  // Stock is visible on the PDP — bust tagged DTO + ISR for affected products.
+  const affected = await prisma.purchaseOrderItem.findMany({
+    where: { purchaseOrderId: data.purchaseOrderId },
+    select: { variant: { select: { product: { select: { slug: true } } } } },
+  });
+  const slugs = [...new Set(affected.map((row) => row.variant.product.slug))];
+  await Promise.all(slugs.map((slug) => productsService.invalidate(slug)));
+  for (const slug of slugs) revalidatePath(`/products/${slug}`);
 
   revalidatePath('/admin/purchasing');
   revalidatePath(`/admin/purchasing/${data.purchaseOrderId}`);
