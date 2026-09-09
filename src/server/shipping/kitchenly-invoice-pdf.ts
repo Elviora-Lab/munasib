@@ -100,7 +100,17 @@ function drawText(
   font: Awaited<ReturnType<PDFDocument['embedFont']>>,
   color = rgb(0.08, 0.08, 0.08),
 ) {
-  page.drawText(text, { x, y, size, font, color });
+  // Helvetica is WinAnsi — normalize common Unicode punctuation so catalog
+  // names / discounts never blow up print with "cannot encode".
+  const safe = text
+    .replace(/[\u2212\u2013\u2014]/g, '-') // minus, en/em dash
+    .replace(/[\u00B7\u2022]/g, '-') // middle dot, bullet
+    .replace(/\u00D7/g, 'x') // multiplication
+    .replace(/\u2026/g, '...') // ellipsis
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/[^\x00-\xFF]/g, '?');
+  page.drawText(safe, { x, y, size, font, color });
 }
 
 /**
@@ -186,13 +196,14 @@ export async function buildKitchenlyInvoicePdf(order: InvoiceOrder): Promise<Uin
   });
   y -= 18;
 
-  // Payment callout — COD amount to collect, or prepaid method.
+  // Payment callout - COD amount to collect, or prepaid method.
+  // Use ASCII-only glyphs: StandardFonts are WinAnsi and reject U+2212 etc.
   const isCod = order.paymentMethod === 'COD';
   const paymentLine = isCod
-    ? `Cash on Delivery — ${money(order.totalAmount, order.currency)}`
+    ? `Cash on Delivery - ${money(order.totalAmount, order.currency)}`
     : order.paymentStatus === 'PAID'
-      ? `Paid · ${order.paymentMethod ?? 'Prepaid'}`
-      : `Payment · ${order.paymentMethod ?? order.paymentStatus}`;
+      ? `Paid - ${order.paymentMethod ?? 'Prepaid'}`
+      : `Payment - ${order.paymentMethod ?? order.paymentStatus}`;
   const payBoxPadX = 10;
   const payBoxPadY = 6;
   const paySize = isCod ? 11 : 9;
@@ -218,7 +229,7 @@ export async function buildKitchenlyInvoicePdf(order: InvoiceOrder): Promise<Uin
   }
   const addr = [order.shippingAddressLine1, order.shippingCity, order.shippingPhone]
     .filter(Boolean)
-    .join(' · ');
+    .join(' - ');
   if (addr) {
     drawText(page, addr.slice(0, 90), MARGIN, y, 9, font, rgb(0.3, 0.3, 0.3));
     y -= 16;
@@ -257,8 +268,8 @@ export async function buildKitchenlyInvoicePdf(order: InvoiceOrder): Promise<Uin
     ensureSpace(ROW_H + 24);
     const line = order.items[i]!;
     const thumb = thumbs[i];
-    const title = [line.productName, line.variantName].filter(Boolean).join(' · ');
-    const label = line.quantity > 1 ? `${line.quantity}× ${title}` : title;
+    const title = [line.productName, line.variantName].filter(Boolean).join(' - ');
+    const label = line.quantity > 1 ? `${line.quantity}x ${title}` : title;
     const price = money(
       line.totalPrice > 0 ? line.totalPrice : line.unitPrice * line.quantity,
       order.currency,
@@ -301,7 +312,7 @@ export async function buildKitchenlyInvoicePdf(order: InvoiceOrder): Promise<Uin
     const maxTitleWidth = PAGE_W - MARGIN - textX - 90;
     let display = label;
     while (font.widthOfTextAtSize(display, 10) > maxTitleWidth && display.length > 4) {
-      display = `${display.slice(0, -2)}…`;
+      display = `${display.slice(0, -2)}...`;
     }
     drawText(page, display, textX, rowTop - 12, 10, font);
     drawText(
@@ -338,7 +349,7 @@ export async function buildKitchenlyInvoicePdf(order: InvoiceOrder): Promise<Uin
   ];
   if (discount > 0) {
     const label = order.discountLabel?.trim() ? `Discount (${order.discountLabel})` : 'Discount';
-    summaryRows.push({ label, value: `−${money(discount, order.currency)}` });
+    summaryRows.push({ label, value: `-${money(discount, order.currency)}` });
   }
   summaryRows.push({
     label: 'Total',
