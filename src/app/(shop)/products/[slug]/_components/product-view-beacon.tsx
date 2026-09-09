@@ -3,6 +3,8 @@
 import { useEffect, useRef } from 'react';
 
 const VIEWED_KEY = 'kly_pdp_views';
+/** First-party `/view` only — Meta Pixel ViewContent always fires separately. */
+const FIRST_PARTY_VIEW_SAMPLE = 0.2;
 
 function alreadyViewed(slug: string): boolean {
   try {
@@ -28,14 +30,19 @@ function markViewed(slug: string) {
 }
 
 /**
- * One-shot first-party product view. Deduped per slug per tab session so
- * back/forward and remounts don't add Edge Requests. Lives on the client so
- * the PDP stays ISR-cacheable.
+ * Optional first-party product view for admin analytics DB.
+ * Sampled at 20% and session-deduped — does NOT replace Meta Pixel / GA
+ * `viewItem` (those always fire from ProductExperience).
  */
 export function ProductViewBeacon({ slug }: { slug: string }) {
   const sent = useRef(false);
   useEffect(() => {
     if (sent.current || alreadyViewed(slug)) return;
+    if (Math.random() > FIRST_PARTY_VIEW_SAMPLE) {
+      // Remember skip so remounts don't retry and accidentally over-sample.
+      markViewed(slug);
+      return;
+    }
     sent.current = true;
     markViewed(slug);
     fetch(`/api/v1/products/${encodeURIComponent(slug)}/view`, {

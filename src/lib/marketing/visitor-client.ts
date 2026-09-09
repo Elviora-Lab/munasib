@@ -110,15 +110,17 @@ export function visitorPayload(): VisitorPayload {
 }
 
 /**
- * Upsert the anonymous marketing visitor. Gated to once per browser tab session
- * so client-side navigations do not POST on every pathname change. Pass
- * `{ force: true }` when permission or identity must be refreshed immediately
- * (e.g. after push subscribe — though `/api/v1/push/subscribe` upserts too).
+ * Upsert the anonymous marketing visitor. Only when the visit has an
+ * acquisition signal (UTM / fbclid / gclid or persisted `elv_utm` cookie) so
+ * organic bounces don't pay an Edge Request. Still once per tab session.
  */
 export async function syncMarketingVisitor(options?: { force?: boolean }): Promise<void> {
   if (typeof window === 'undefined') return;
   try {
     if (!options?.force && window.sessionStorage.getItem(VISITOR_SESSION_SYNC_KEY) === '1') {
+      return;
+    }
+    if (!options?.force && !hasAcquisitionSignal()) {
       return;
     }
     await fetch('/api/v1/marketing/visitor', {
@@ -131,6 +133,23 @@ export async function syncMarketingVisitor(options?: { force?: boolean }): Promi
   } catch {
     /* best-effort — do not mark synced so a later attempt can retry */
   }
+}
+
+/** True when this hit (or prior landing cookie) carries paid/campaign params. */
+function hasAcquisitionSignal(): boolean {
+  const params = new URLSearchParams(window.location.search);
+  if (
+    params.get('utm_source') ||
+    params.get('utm_medium') ||
+    params.get('utm_campaign') ||
+    params.get('utm_content') ||
+    params.get('utm_term') ||
+    params.get('fbclid') ||
+    params.get('gclid')
+  ) {
+    return true;
+  }
+  return Boolean(readCookie('elv_utm'));
 }
 
 export function trackVisitorEvent(input: {

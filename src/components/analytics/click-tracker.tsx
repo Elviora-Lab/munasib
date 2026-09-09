@@ -8,26 +8,24 @@ import {
   clickstreamSampleRate,
   deriveClick,
 } from '@/lib/analytics/clickstream';
+import { useAfterInteractive } from '@/hooks/use-after-interactive';
 
 /**
- * First-party clickstream capture.
- *
- * One delegated, capture-phase listener records every meaningful link/button
- * click (see `deriveClick`), batches them, and flushes via `navigator.sendBeacon`
- * on a timer, when the batch fills, and on page hide — so in-flight clicks
- * survive a navigation. Identity is derived server-side at `/api/v1/click`; the
- * browser only sends the anonymous payload. Rendered once in the root layout;
- * inert unless enabled (production, or the dev opt-in flag).
+ * First-party clickstream (not Meta Pixel). Starts only after interaction/idle
+ * so bounce landings never open `/api/v1/click`. Pixel loads separately in root
+ * layout and is untouched.
  */
 
 const ENDPOINT = '/api/v1/click';
-const FLUSH_SIZE = 20; // fewer beacons — batch more clicks per request
+const FLUSH_SIZE = 20;
 const FLUSH_MS = 12_000;
-const MAX_BATCH = 30; // matches the endpoint's per-request cap
+const MAX_BATCH = 30;
 
 export function ClickTracker() {
+  const ready = useAfterInteractive(4000);
+
   useEffect(() => {
-    if (!clickstreamEnabled) return;
+    if (!clickstreamEnabled || !ready) return;
 
     let queue: ClickPayload[] = [];
 
@@ -48,9 +46,9 @@ export function ClickTracker() {
           });
         }
       } catch {
-        /* best-effort — a tracking hiccup must never affect the shopper */
+        /* best-effort */
       }
-      if (queue.length) flush(); // drain remainder if we overflowed one batch
+      if (queue.length) flush();
     };
 
     const onClick = (e: MouseEvent) => {
@@ -77,7 +75,7 @@ export function ClickTracker() {
       clearInterval(timer);
       flush();
     };
-  }, []);
+  }, [ready]);
 
   return null;
 }
