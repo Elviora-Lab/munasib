@@ -11,6 +11,7 @@ import { requireUser } from '@/server/auth/guards';
 import { verifyReviewToken } from '@/server/auth/tokens';
 import { events } from '@/server/events';
 import { clientIpFromAction, enforceRateLimit } from '@/server/http/rate-limit';
+import { productsService } from '@/server/services/products.service';
 
 const submitReviewBody = z.object({
   productId: z.string().uuid(),
@@ -53,7 +54,15 @@ export const submitReview = withAction(async (input: z.infer<typeof submitReview
     userId: session.sub,
   });
 
-  revalidatePath(`/products/[slug]`, 'page');
+  const product = await prisma.product.findUnique({
+    where: { id: body.productId },
+    select: { slug: true },
+  });
+  // Pending until approved — still clear summary cache so counts stay honest after approve.
+  if (product?.slug) {
+    productsService.invalidateReviews(body.productId, product.slug);
+    revalidatePath(`/products/${product.slug}`);
+  }
   return review;
 });
 
@@ -136,7 +145,14 @@ export const submitGuestReview = withAction(
       });
     }
 
-    revalidatePath(`/products/[slug]`, 'page');
+    const product = await prisma.product.findUnique({
+      where: { id: body.productId },
+      select: { slug: true },
+    });
+    if (product?.slug) {
+      productsService.invalidateReviews(body.productId, product.slug);
+      revalidatePath(`/products/${product.slug}`);
+    }
     return { id: review.id };
   },
 );

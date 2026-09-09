@@ -21,8 +21,8 @@ import {
  */
 
 const ENDPOINT = '/api/v1/click';
-const FLUSH_SIZE = 10; // flush once this many clicks are queued
-const FLUSH_MS = 5000; // …or every 5s, whichever comes first
+const FLUSH_SIZE = 20; // fewer beacons — batch more clicks per request
+const FLUSH_MS = 12_000;
 const MAX_BATCH = 30; // matches the endpoint's per-request cap
 
 export function ClickTracker() {

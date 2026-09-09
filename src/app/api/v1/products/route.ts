@@ -10,7 +10,8 @@ import { productsService } from '@/server/services/products.service';
 import { productListQuery } from '@/server/validators/products.schema';
 
 export const runtime = 'nodejs';
-export const revalidate = 60; // ISR-friendly: list responses are cached for 60s
+/** Align with productsService list Data Cache TTL (600s). */
+export const revalidate = 600;
 
 export const GET = createHandler(async (req) => {
   const q = parseQuery(req, productListQuery);

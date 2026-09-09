@@ -9,9 +9,20 @@ import { productsService } from '@/server/services/products.service';
 
 type Params = Promise<{ slug: string }>;
 
-// ISR: the PDP is the same for everyone; view tracking happens via a client
-// beacon, so the page itself can be cached and revalidated periodically.
-export const revalidate = 300;
+// ISR + tagged Data Cache. Writes call revalidateTag(`product:${slug}`), so
+// this can stay long without serving stale admin edits for an hour.
+export const revalidate = 3600;
+
+/** Prebuild active PDPs so the CDN serves HIT instead of cold Function misses. */
+export async function generateStaticParams() {
+  try {
+    const slugs = await productsService.listActiveSlugs();
+    return slugs.map((slug) => ({ slug }));
+  } catch {
+    // Build without DB (or transient outage) — fall back to on-demand ISR.
+    return [];
+  }
+}
 
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
   const { slug } = await params;

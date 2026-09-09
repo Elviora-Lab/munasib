@@ -25,10 +25,13 @@ export type ClickPayload = {
  *  no shopper is ever tracked from a dev/preview build. */
 export const clickstreamEnabled = isProd;
 
-/** Optional sampling valve (0–1). Unset/invalid ⇒ 1 (capture every click). */
+/** Optional sampling valve (0–1). Unset/invalid ⇒ 0.15 in prod (cuts Edge
+ *  Requests from click beacons). Set `NEXT_PUBLIC_CLICKSTREAM_SAMPLE=1` to
+ *  capture every click. */
 export const clickstreamSampleRate = (() => {
   const raw = Number(publicEnv.NEXT_PUBLIC_CLICKSTREAM_SAMPLE);
-  return Number.isFinite(raw) && raw > 0 && raw <= 1 ? raw : 1;
+  if (Number.isFinite(raw) && raw > 0 && raw <= 1) return raw;
+  return 0.15;
 })();
 
 // Only clicks that resolve to one of these count as "meaningful" — a click on

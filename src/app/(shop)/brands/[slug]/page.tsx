@@ -28,6 +28,17 @@ type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 const str = (v: string | string[] | undefined) => (typeof v === 'string' ? v : undefined);
 const PAGE_SIZE = 24;
 
+export const revalidate = 600;
+
+export async function generateStaticParams() {
+  try {
+    const brands = await brandsService.list();
+    return brands.filter((b) => b.isActive).map((b) => ({ slug: b.slug }));
+  } catch {
+    return [];
+  }
+}
+
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
   const { slug } = await params;
   const [brand, brands] = await Promise.all([

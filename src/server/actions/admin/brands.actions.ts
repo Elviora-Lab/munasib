@@ -8,8 +8,8 @@ import { toSlug } from '@/utils/slug';
 import { withAction } from '../_with-action';
 
 import { requireAdmin } from '@/server/auth/guards';
-import { cache } from '@/server/cache';
 import { adminBrandsRepo } from '@/server/repositories/admin.repo';
+import { brandsService } from '@/server/services/brands.service';
 import { idInput } from '@/server/validators/admin-common.schema';
 
 const brandBody = z.object({
@@ -30,7 +30,7 @@ export const createBrand = withAction(async (input: z.infer<typeof brandBody>) =
     logo: data.logo,
     isActive: data.isActive ?? true,
   });
-  await cache.delete('brands:active');
+  brandsService.invalidate(brand.slug);
   revalidatePath('/admin/brands');
   return brand;
 });
@@ -39,8 +39,7 @@ export const deleteBrand = withAction(async (input: { id: string }) => {
   await requireAdmin();
   const { id } = idInput.parse(input);
   const brand = await adminBrandsRepo.delete(id);
-  await cache.delete('brands:active');
-  await cache.delete(`brands:slug:${brand.slug}`);
+  brandsService.invalidate(brand.slug);
   revalidatePath('/admin/brands');
   return { id: input.id };
 });

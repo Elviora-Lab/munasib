@@ -9,9 +9,9 @@ import { toSlug } from '@/utils/slug';
 import { withAction } from '../_with-action';
 
 import { requireAdmin } from '@/server/auth/guards';
-import { cache } from '@/server/cache';
 import { BadRequestError } from '@/server/http/errors';
 import { adminCategoriesRepo } from '@/server/repositories/admin.repo';
+import { categoriesService } from '@/server/services/categories.service';
 import { idInput } from '@/server/validators/admin-common.schema';
 
 const categoryBody = z.object({
@@ -49,16 +49,21 @@ export const createCategory = withAction(async (input: z.infer<typeof categoryBo
     isActive: data.isActive ?? true,
     ...(data.parentId ? { parent: { connect: { id: data.parentId } } } : {}),
   });
-  await cache.delete('categories:active');
+  categoriesService.invalidate(cat.slug);
   revalidatePath('/admin/categories');
+  revalidatePath('/categories');
+  revalidatePath(`/categories/${cat.slug}`);
+  revalidatePath('/');
   return cat;
 });
 
 export const deleteCategory = withAction(async (input: { id: string }) => {
   await requireAdmin();
   const { id } = idInput.parse(input);
-  await adminCategoriesRepo.delete(id);
-  await cache.delete('categories:active');
+  const cat = await adminCategoriesRepo.delete(id);
+  categoriesService.invalidate(cat.slug);
   revalidatePath('/admin/categories');
+  revalidatePath('/categories');
+  revalidatePath('/');
   return { id: input.id };
 });

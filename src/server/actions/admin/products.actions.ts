@@ -1,6 +1,6 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 
@@ -10,6 +10,7 @@ import { toSlug } from '@/utils/slug';
 import { withAction } from '../_with-action';
 
 import { requireAdmin } from '@/server/auth/guards';
+import { cacheTags } from '@/server/cache/tags';
 import { BadRequestError, NotFoundError } from '@/server/http/errors';
 import { adminProductsRepo } from '@/server/repositories/admin.repo';
 import { inventoryService } from '@/server/services/inventory.service';
@@ -132,6 +133,7 @@ export const createProduct = withAction(async (input: z.infer<typeof productBody
   await productsService.invalidateLists();
   revalidatePath('/admin/products');
   revalidatePath('/products');
+  revalidatePath(`/products/${product.slug}`);
   revalidatePath('/');
   return product;
 });
@@ -171,11 +173,15 @@ export const updateProduct = withAction(
       if (images) await setProductImages(id, images, tx);
       return updated;
     });
-    // Drop the cached PDP (Redis + in-process) so price/availability edits show
-    // immediately instead of waiting out the 120s TTL.
+    // Drop Next Data Cache + ISR for this PDP so price/availability edits show
+    // immediately instead of waiting out the route TTL.
     await productsService.invalidate(product.slug);
+    productsService.invalidateReviews(product.id, product.slug);
     revalidatePath('/admin/products');
     revalidatePath(`/admin/products/${id}`);
+    revalidatePath(`/products/${product.slug}`);
+    revalidatePath('/products');
+    revalidatePath('/');
     return product;
   },
 );
@@ -186,7 +192,11 @@ export const deleteProduct = withAction(async (input: { id: string }) => {
   // delete() returns the removed row, so we still have its slug to invalidate.
   const product = await adminProductsRepo.delete(id);
   await productsService.invalidate(product.slug);
+  revalidateTag(cacheTags.productReviews(product.id), 'max');
   revalidatePath('/admin/products');
+  revalidatePath(`/products/${product.slug}`);
+  revalidatePath('/products');
+  revalidatePath('/');
   return { id: input.id };
 });
 

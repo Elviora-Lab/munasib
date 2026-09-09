@@ -232,4 +232,14 @@ export const productsRepo = {
 
     return hydrate([...rankedIds, ...fill.map((f) => f.id)].slice(0, limit));
   },
+
+  /** Active PDP slugs for ISR `generateStaticParams`. */
+  async listActiveSlugs(): Promise<string[]> {
+    const rows = await prisma.product.findMany({
+      where: { isActive: true },
+      select: { slug: true },
+      orderBy: { updatedAt: 'desc' },
+    });
+    return rows.map((r) => r.slug);
+  },
 };

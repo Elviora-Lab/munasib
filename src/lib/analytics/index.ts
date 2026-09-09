@@ -120,18 +120,14 @@ export const analytics = {
   viewItem(p: { id: string; name: string; price: number; currency: string; brand?: string }) {
     logDev('view_item', p);
     const eventId = newEventId();
+    // Browser Pixel + GA only. Relaying ViewContent to `/api/v1/track` on every
+    // PDP doubled Edge Requests for ads traffic; Match Quality for upper-funnel
+    // is good enough from the Pixel + ParamBuilder cookies. Keep CAPI on ATC /
+    // checkout / Purchase where conversion quality matters more.
     metaPixel.viewContent(
       { id: p.id, name: p.name, price: p.price, currency: p.currency },
       eventId,
     );
-    capiRelay('ViewContent', eventId, {
-      value: p.price,
-      currency: p.currency,
-      content_ids: [p.id],
-      contents: [{ id: p.id, item_price: p.price }],
-      content_name: p.name,
-      content_type: 'product',
-    });
     ga.viewItem(p);
   },
 
@@ -357,8 +353,8 @@ export const analytics = {
   search(query: string) {
     logDev('search', query);
     const eventId = newEventId();
+    // Pixel + GA only — Search is high-volume catalog traffic; skip CAPI relay.
     metaPixel.search(query, eventId);
-    capiRelay('Search', eventId, { search_string: query });
     ga.search(query);
   },
 

@@ -58,7 +58,7 @@ export const metadata = buildMetadata({
 
 // ISR — the homepage is the same for everyone; revalidate periodically so new
 // bestsellers surface without rendering fresh on every request.
-export const revalidate = 300;
+export const revalidate = 3600;
 
 const FREE_DELIVERY_AT = FREE_SHIPPING_THRESHOLD;
 

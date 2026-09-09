@@ -22,7 +22,7 @@ export const metadata = buildMetadata({
   path: '/categories',
 });
 
-export const revalidate = 300;
+export const revalidate = 3600;
 
 export default async function CategoriesIndexPage() {
   // This page previously filtered to `children.length > 0`. The catalog moved

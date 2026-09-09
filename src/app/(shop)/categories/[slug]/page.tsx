@@ -37,6 +37,19 @@ type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 const str = (v: string | string[] | undefined) => (typeof v === 'string' ? v : undefined);
 const PAGE_SIZE = 24;
 
+/** Fallback TTL; query/sort variants are dynamic, Data Cache still covers Prisma. */
+export const revalidate = 600;
+
+/** Prebuild default category URLs (no query string) for CDN HITs. */
+export async function generateStaticParams() {
+  try {
+    const categories = await categoriesService.list();
+    return categories.map((c) => ({ slug: c.slug }));
+  } catch {
+    return [];
+  }
+}
+
 function prettify(slug: string) {
   return slug
     .split('-')

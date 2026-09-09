@@ -100,12 +100,12 @@ export function PushPermissionNudge() {
     [pathname],
   );
 
-  // Visitor upsert runs once per tab session (see syncMarketingVisitor), not per route.
+  // Visitor upsert once per tab session, deferred so bounce PDPs skip it.
   useEffect(() => {
     if (!eligiblePath) return;
     const timer = setTimeout(() => {
       void syncMarketingVisitor();
-    }, 900);
+    }, 5000);
     return () => clearTimeout(timer);
   }, [eligiblePath]);
 

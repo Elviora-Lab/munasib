@@ -4,37 +4,32 @@ import { useEffect } from 'react';
 
 import { useAppDispatch } from '@/store/hooks';
 
+import { useAfterInteractive } from '@/hooks/use-after-interactive';
+
 import { useMeQuery } from '../api/auth-api';
 import { clearUser, setHydrated, setUser } from '../store/auth-slice';
 
 /**
- * AuthHydrator
- * ----------------------------------------------------------------------
- * Bridges the server session (httpOnly cookie) → Redux auth state on load.
- *
- * Without this, `useAuth().isAuthenticated` is `false` after every page
- * reload even though the session cookie is still valid: Redux auth state is
- * in-memory and only gets populated by an in-session `signIn()`.
- *
- * Calls `/auth/me` once on mount (RTK Query dedups + caches). On success the
- * user is written to Redux; on a 401 the state is cleared. Either way the
- * store is marked hydrated so gated UI can stop showing a loading state.
- *
- * Renders nothing.
+ * Session cookie → Redux. Storefront assumes guest immediately (hydrated), then
+ * confirms `/auth/me` after idle/interaction so bounce traffic skips the call.
  */
 export function AuthHydrator() {
   const dispatch = useAppDispatch();
-  const { data, isSuccess, isError, isLoading } = useMeQuery();
+  const ready = useAfterInteractive(2500);
+  const { data, isSuccess, isError } = useMeQuery(undefined, { skip: !ready });
 
   useEffect(() => {
-    if (isLoading) return;
+    dispatch(setHydrated(true));
+  }, [dispatch]);
+
+  useEffect(() => {
+    if (!ready) return;
     if (isSuccess && data) {
       dispatch(setUser(data));
     } else if (isError) {
       dispatch(clearUser());
     }
-    dispatch(setHydrated(true));
-  }, [data, isSuccess, isError, isLoading, dispatch]);
+  }, [ready, data, isSuccess, isError, dispatch]);
 
   return null;
 }

@@ -15,7 +15,6 @@ import { ProductExperience } from './product-experience';
 import { ProductReviews } from './product-reviews';
 import { ProductViewBeacon } from './product-view-beacon';
 
-import { reviewsRepo } from '@/server/repositories/reviews.repo';
 import { flashSaleService } from '@/server/services/flash-sale.service';
 import { productsService } from '@/server/services/products.service';
 
@@ -37,12 +36,15 @@ export async function ProductDetail({
 }) {
   // Reviews and related products are enrichment, not the product itself — a
   // transient DB failure on them must not 500 the whole PDP.
-  const [related, reviewSummary, reviews, flashSummary] = await Promise.all([
+  const [related, reviewBundle, flashSummary] = await Promise.all([
     productsService.getRelated(slug, 4).catch(() => []),
-    reviewsRepo.summary(product.id).catch(() => ({ average: 0, count: 0 })),
-    reviewsRepo.listApproved(product.id, 10).catch(() => []),
+    productsService
+      .getReviews(product.id, slug)
+      .catch(() => ({ summary: { average: 0, count: 0 }, reviews: [] })),
     flashSaleService.liveSummary().catch(() => null),
   ]);
+  const reviewSummary = reviewBundle.summary;
+  const reviews = reviewBundle.reviews;
 
   // A live flash sale on THIS product. The discount is applied to variant
   // prices below rather than at the render site, so every downstream consumer —

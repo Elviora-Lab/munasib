@@ -2,24 +2,24 @@
 
 import { useEffect } from 'react';
 
-import { useAppDispatch } from '@/store/hooks';
+import { useAppDispatch, useAppSelector } from '@/store/hooks';
 
 import { useGetWishlistIdsQuery } from '../wishlist-api';
 import { wishlistActions } from '../wishlist-slice';
 
 /**
- * Syncs Redux wishlist with the user's server-side wishlist on mount and
- * whenever the `Wishlist` RTK Query tag is invalidated (after a toggle).
- *
- * Without this, the heart icons across the storefront would only reflect
- * in-memory state — wiped on every reload, never matching the DB.
- *
- * Returns null if the user is signed out (the query 401s silently — Redux
- * stays at its initial empty state, which is correct for guests).
+ * Syncs wishlist hearts for signed-in users only. Guests skip the API entirely
+ * (previously every page fired a 401 Function invocation).
  */
 export function WishlistHydrator() {
   const dispatch = useAppDispatch();
-  const { data } = useGetWishlistIdsQuery();
+  const hydrated = useAppSelector((s) => s.auth.hydrated);
+  const isAuthenticated = useAppSelector(
+    (s) => s.auth.status === 'authenticated' && Boolean(s.auth.user),
+  );
+  const { data } = useGetWishlistIdsQuery(undefined, {
+    skip: !hydrated || !isAuthenticated,
+  });
 
   useEffect(() => {
     if (!data) return;

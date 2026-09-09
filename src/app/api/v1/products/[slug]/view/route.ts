@@ -5,7 +5,6 @@ import { getSession } from '@/server/auth/get-session';
 import { createHandler } from '@/server/http/handler';
 import { clientIp, isRateLimited } from '@/server/http/rate-limit';
 import { apiSuccess } from '@/server/http/response';
-import { productsService } from '@/server/services/products.service';
 
 export const runtime = 'nodejs';
 
@@ -27,7 +26,8 @@ export const POST = createHandler(async (req, ctx: { params: Promise<{ slug: str
     const userId = session?.sub ?? null;
     await analyticsServer.productView(product.id, userId);
     if (userId) await analyticsServer.recordRecentlyViewed(userId, product.id);
-    await productsService.invalidateLists();
+    // Do NOT invalidate product list/detail caches here — views are analytics,
+    // not catalog writes. Busting tags on every ad click undoes ISR/Data Cache.
   }
   return apiSuccess({ ok: true });
 });

@@ -3,22 +3,22 @@
 import { useEffect } from 'react';
 
 import { pixelEnabled } from '@/lib/analytics/meta-pixel';
+import { useAfterInteractive } from '@/hooks/use-after-interactive';
+
+const IP_SESSION_KEY = 'kly_meta_client_ip';
 
 /**
  * Meta CAPI Parameter Builder — client side.
  *
- * On first mount it captures `_fbp` / `_fbc` as early as possible, generates
- * `_fbc` from `?fbclid` when missing, and (via `getIpFn`) stores the shopper's
- * public IP in `_fbi`. Server CAPI calls then run Meta's Node ParamBuilder over
- * those cookies + request headers for best-available `client_ip_address`.
- *
- * The package is a browser UMD bundle (references `self`), so it is loaded via a
- * dynamic import INSIDE the effect — effects never run during SSR. Production
- * only (mirrors the pixel).
+ * Deferred until idle/interaction so bounce landings skip `/api/v1/meta/client-ip`.
+ * IP is cached in sessionStorage for the tab so SPA navigations don't re-hit
+ * the Edge.
  */
 export function CapiParamInit() {
+  const ready = useAfterInteractive(4000);
+
   useEffect(() => {
-    if (!pixelEnabled) return;
+    if (!pixelEnabled || !ready) return;
     let cancelled = false;
     void (async () => {
       try {
@@ -34,7 +34,7 @@ export function CapiParamInit() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [ready]);
 
   return null;
 }
@@ -42,15 +42,19 @@ export function CapiParamInit() {
 /** Prefer IPv6 from our first-party endpoint; empty string if unavailable. */
 async function fetchClientIp(): Promise<string> {
   try {
+    const cached = window.sessionStorage.getItem(IP_SESSION_KEY);
+    if (cached !== null) return cached;
+
     const res = await fetch('/api/v1/meta/client-ip', {
       method: 'GET',
       credentials: 'same-origin',
-      cache: 'no-store',
+      cache: 'force-cache',
     });
     if (!res.ok) return '';
     const json = (await res.json()) as { data?: { ip?: string } };
-    const ip = json.data?.ip?.trim();
-    return ip || '';
+    const ip = json.data?.ip?.trim() || '';
+    window.sessionStorage.setItem(IP_SESSION_KEY, ip);
+    return ip;
   } catch {
     return '';
   }
