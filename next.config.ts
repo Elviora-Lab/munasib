@@ -62,6 +62,10 @@ const nextConfig: NextConfig = {
 
   experimental: {
     optimizePackageImports: ['lucide-react', 'framer-motion', '@radix-ui/react-icons'],
+    // Vercel builds prerender 500+ PDPs against a small Prisma pool (~9).
+    // Default concurrency opens more connections than the pool has → P2024.
+    staticGenerationMaxConcurrency: 2,
+    staticGenerationRetryCount: 3,
   },
 
   async headers() {
