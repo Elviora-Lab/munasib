@@ -14,18 +14,19 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 /**
- * During `next build`, hundreds of PDPs are prerendered. Give the pool a
- * longer wait so transient contention doesn't fail the export. Runtime stays
- * on the URL as configured (typically a small serverless pool).
+ * During `next build`, Next spawns multiple SSG workers and each gets its own
+ * PrismaClient. Default pool size is ~num_cpus*2+1 — enough workers × that
+ * pool exhausts Supabase's max clients (EMAXCONN / 200). Cap each worker to
+ * one connection and wait longer under contention. Runtime keeps DATABASE_URL
+ * as configured (serverless-friendly pooler settings).
  */
 function datasourceUrl(): string | undefined {
   const raw = process.env.DATABASE_URL;
   if (!raw || process.env.NEXT_PHASE !== 'phase-production-build') return raw;
   try {
     const url = new URL(raw);
-    if (!url.searchParams.has('pool_timeout')) {
-      url.searchParams.set('pool_timeout', '60');
-    }
+    url.searchParams.set('connection_limit', '1');
+    url.searchParams.set('pool_timeout', '60');
     return url.toString();
   } catch {
     return raw;
@@ -39,6 +40,5 @@ export const prisma =
     datasources: { db: { url: datasourceUrl() } },
   });
 
-if (isDev) {
-  globalForPrisma.prisma = prisma;
-}
+// Always pin the singleton — build workers and serverless alike benefit.
+globalForPrisma.prisma = prisma;

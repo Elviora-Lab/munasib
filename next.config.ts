@@ -62,10 +62,12 @@ const nextConfig: NextConfig = {
 
   experimental: {
     optimizePackageImports: ['lucide-react', 'framer-motion', '@radix-ui/react-icons'],
-    // Vercel builds prerender 500+ PDPs against a small Prisma pool (~9).
-    // Default concurrency opens more connections than the pool has → P2024.
-    staticGenerationMaxConcurrency: 2,
-    staticGenerationRetryCount: 3,
+    // Vercel builds prerender 500+ PDPs. Each SSG worker gets its own Prisma
+    // client — too many workers × default pool size hits Supabase EMAXCONN
+    // (max ~200 clients). Keep concurrency low and prefer fewer fat workers.
+    staticGenerationMaxConcurrency: 1,
+    staticGenerationMinPagesPerWorker: 200,
+    staticGenerationRetryCount: 2,
   },
 
   async headers() {
