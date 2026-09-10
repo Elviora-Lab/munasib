@@ -74,8 +74,8 @@ export type ProductPageData = {
   } | null;
 };
 
-/** ~15 min content; flash display piggybacks but writes call `flash-sale` tag. */
-const PDP_REVALIDATE_SECONDS = 900;
+/** Align with public PDP ISR (`revalidate = 86400`); writes still bust via tags. */
+const PDP_REVALIDATE_SECONDS = 86400;
 
 function toNum(v: unknown): number {
   if (typeof v === 'number') return v;

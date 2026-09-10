@@ -376,6 +376,7 @@ export const bulkImportProducts = withAction(async (input: { rows: unknown[] }) 
   // import instead of one per row.
   const brandIdBySlug = new Map<string, string>();
   const categoryIdBySlug = new Map<string, string>();
+  const affectedSlugs: string[] = [];
 
   for (const row of rows) {
     try {
@@ -480,6 +481,7 @@ export const bulkImportProducts = withAction(async (input: { rows: unknown[] }) 
       }
 
       await productsService.invalidate(slug);
+      affectedSlugs.push(slug);
     } catch {
       failed++;
     }
@@ -487,8 +489,8 @@ export const bulkImportProducts = withAction(async (input: { rows: unknown[] }) 
 
   revalidatePath('/admin/products');
   revalidatePath('/products');
-  // Per-slug tags were busted in the loop; expire ISR HTML for all PDPs too.
-  revalidatePath('/products/[slug]', 'page');
+  // Tags were busted per slug above; expire only those ISR shells.
+  for (const slug of affectedSlugs) revalidatePath(`/products/${slug}`);
   return { created, updated, failed };
 });
 
@@ -735,6 +737,7 @@ export const importShopifyProducts = withAction(
 
     // Full-catalog mode: anything not in this file goes dark (reversible).
     let deactivated = 0;
+    const deactivatedSlugs: string[] = [];
     if (deactivateOthers && importedSlugs.length > 0) {
       const toHide = await prisma.product.findMany({
         where: { slug: { notIn: importedSlugs }, isActive: true },
@@ -745,14 +748,17 @@ export const importShopifyProducts = withAction(
         data: { isActive: false },
       });
       deactivated = res.count;
+      deactivatedSlugs.push(...toHide.map((p) => p.slug));
       await Promise.all(toHide.map((p) => productsService.invalidate(p.slug)));
     }
 
     revalidatePath('/admin/products');
     revalidatePath('/products');
     revalidatePath('/');
-    // Imported/deactivated rows already had tag busts; expire PDP ISR shells too.
-    revalidatePath('/products/[slug]', 'page');
+    // Tags already busted for imported + deactivated; expire only those ISR shells.
+    for (const slug of new Set([...importedSlugs, ...deactivatedSlugs])) {
+      revalidatePath(`/products/${slug}`);
+    }
     return { created, updated, failed, deactivated, errors: errors.slice(0, 20) };
   },
 );

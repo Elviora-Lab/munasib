@@ -12,12 +12,13 @@ type Params = Promise<{ slug: string }>;
 
 /**
  * Public PDP — shared Data Cache DTO for metadata + body.
- * Route ISR + `generateStaticParams` aim for CDN HITs; writes use `revalidateTag`.
+ * Route ISR + `generateStaticParams` aim for CDN HITs; writes use tagged
+ * `product:${slug}` invalidation so unchanged products stay cached for up to 24h.
  *
  * Stock/price shown here may be briefly stale; cart/checkout re-read authoritative
  * values and must never consume this DTO.
  */
-export const revalidate = 900;
+export const revalidate = 86400;
 
 /** Prebuild active PDPs so the CDN can serve HIT without a cold Function. */
 export async function generateStaticParams() {
