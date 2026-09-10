@@ -8,7 +8,10 @@ import {
   buildKitchenlyInvoicePdf,
   type InvoiceOrder,
 } from '@/server/shipping/kitchenly-invoice-pdf';
-import { getPostExAirwayBill } from '@/server/shipping/postex';
+import { getPostExAirwayBillsByTracking } from '@/server/shipping/postex';
+
+/** How many Kitchenly invoices to render at once (each pulls product images). */
+const INVOICE_BUILD_CONCURRENCY = 4;
 
 /** Prefer JPEG/PNG — pdf-lib cannot embed WebP. */
 function pickPdfSafeImage(urls: Array<string | null | undefined>): string | null {
@@ -94,6 +97,22 @@ function toInvoiceOrder(
   };
 }
 
+async function mapInBatches<T, R>(
+  items: T[],
+  batchSize: number,
+  fn: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  const out: R[] = new Array(items.length);
+  for (let i = 0; i < items.length; i += batchSize) {
+    const slice = items.slice(i, i + batchSize);
+    const results = await Promise.all(slice.map((item, j) => fn(item, i + j)));
+    for (let j = 0; j < results.length; j++) {
+      out[i + j] = results[j]!;
+    }
+  }
+  return out;
+}
+
 export type InvoiceAwbPackResult = {
   pdf: Uint8Array;
   trackingNumbers: string[];
@@ -104,6 +123,9 @@ export type InvoiceAwbPackResult = {
 /**
  * One printable PDF: for each booked order, Kitchenly invoice (with photos)
  * then that order's PostEx airway bill — interleaved so packs stay matched.
+ *
+ * Invoices and PostEx AWBs are built in parallel (AWBs batched ≤10 per API call)
+ * then interleaved in selection order.
  */
 export async function buildInvoiceAndPostExAwbPdf(
   orderIds: string[],
@@ -117,34 +139,49 @@ export async function buildInvoiceAndPostExAwbPdf(
   const byId = new Map(rows.map((o) => [o.id, o]));
   const ordered = ids.map((id) => byId.get(id)).filter(Boolean) as typeof rows;
 
-  const merged = await PDFDocument.create();
-  const trackingNumbers: string[] = [];
+  const work: Array<{ order: (typeof rows)[number]; tracking: string }> = [];
   let skipped = 0;
-
   for (const order of ordered) {
     const tracking = order.shipments[0]?.trackingNumber?.trim();
     if (!tracking) {
       skipped += 1;
       continue;
     }
+    work.push({ order, tracking });
+  }
 
-    const invoiceBytes = await buildKitchenlyInvoicePdf(toInvoiceOrder(order));
+  if (work.length === 0) {
+    throw new Error('No PostEx tracking numbers on the selected orders — book first');
+  }
+
+  const trackingNumbers = work.map((w) => w.tracking);
+
+  // Build Kitchenly invoices and fetch PostEx AWBs at the same time.
+  const [invoiceBytesList, awbByTracking] = await Promise.all([
+    mapInBatches(work, INVOICE_BUILD_CONCURRENCY, ({ order }) =>
+      buildKitchenlyInvoicePdf(toInvoiceOrder(order)),
+    ),
+    getPostExAirwayBillsByTracking(trackingNumbers),
+  ]);
+
+  const merged = await PDFDocument.create();
+
+  for (let i = 0; i < work.length; i++) {
+    const tracking = work[i]!.tracking;
+    const invoiceBytes = invoiceBytesList[i]!;
     const invoiceDoc = await PDFDocument.load(invoiceBytes);
     for (const page of await merged.copyPages(invoiceDoc, invoiceDoc.getPageIndices())) {
       merged.addPage(page);
     }
 
-    const awbBytes = await getPostExAirwayBill([tracking]);
+    const awbBytes = awbByTracking.get(tracking);
+    if (!awbBytes) {
+      throw new Error(`PostEx AWB missing for tracking ${tracking}`);
+    }
     const awbDoc = await PDFDocument.load(awbBytes);
     for (const page of await merged.copyPages(awbDoc, awbDoc.getPageIndices())) {
       merged.addPage(page);
     }
-
-    trackingNumbers.push(tracking);
-  }
-
-  if (trackingNumbers.length === 0) {
-    throw new Error('No PostEx tracking numbers on the selected orders — book first');
   }
 
   return {

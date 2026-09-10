@@ -41,6 +41,19 @@ const MARGIN = 40;
 const ROW_H = 56;
 const THUMB = 44;
 
+/** Loaded once per process — every invoice was re-reading public/logo.png. */
+let cachedLogoBytes: Uint8Array | null | undefined;
+
+async function loadLogoBytes(): Promise<Uint8Array | null> {
+  if (cachedLogoBytes !== undefined) return cachedLogoBytes;
+  try {
+    cachedLogoBytes = await readFile(path.join(process.cwd(), 'public/logo.png'));
+  } catch {
+    cachedLogoBytes = null;
+  }
+  return cachedLogoBytes;
+}
+
 function money(amount: number, currency: string): string {
   if (currency === 'PKR') return `Rs ${Math.round(amount).toLocaleString('en-PK')}`;
   return `${currency} ${amount.toFixed(2)}`;
@@ -123,26 +136,21 @@ export async function buildKitchenlyInvoicePdf(order: InvoiceOrder): Promise<Uin
 
   let logo: PDFImage | null = null;
   try {
-    const logoBytes = await readFile(path.join(process.cwd(), 'public/logo.png'));
-    logo = await doc.embedPng(logoBytes);
+    const logoBytes = await loadLogoBytes();
+    if (logoBytes) logo = await doc.embedPng(logoBytes);
   } catch {
     logo = null;
   }
 
-  // Pre-fetch line images (prefer non-webp URLs already chosen by caller).
-  const thumbs: Array<PDFImage | null> = [];
-  for (const line of order.items) {
-    if (!line.imageUrl) {
-      thumbs.push(null);
-      continue;
-    }
-    const fetched = await fetchImage(line.imageUrl);
-    if (!fetched) {
-      thumbs.push(null);
-      continue;
-    }
-    thumbs.push(await embedImage(doc, fetched.bytes, fetched.contentType, line.imageUrl));
-  }
+  // Prefetch line images in parallel (prefer non-webp URLs already chosen by caller).
+  const thumbs: Array<PDFImage | null> = await Promise.all(
+    order.items.map(async (line) => {
+      if (!line.imageUrl) return null;
+      const fetched = await fetchImage(line.imageUrl);
+      if (!fetched) return null;
+      return embedImage(doc, fetched.bytes, fetched.contentType, line.imageUrl);
+    }),
+  );
 
   let page = doc.addPage([PAGE_W, PAGE_H]);
   let y = PAGE_H - MARGIN;

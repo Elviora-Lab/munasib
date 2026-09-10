@@ -505,6 +505,64 @@ async function fetchPostExAirwayBillChunk(
   return res.arrayBuffer();
 }
 
+/**
+ * Fetch PostEx AWB PDFs keyed by tracking number (one PDF blob per tracking).
+ * Batches up to 10 trackings per API call; splits pages when PostEx returns
+ * one page per tracking. Falls back to per-tracking fetch if page counts differ.
+ */
+export async function getPostExAirwayBillsByTracking(
+  trackingNumbers: string[],
+): Promise<Map<string, Uint8Array>> {
+  const token = serverEnv.POSTEX_API_TOKEN;
+  if (!token) throw new Error('PostEx is not configured (POSTEX_API_TOKEN missing)');
+
+  const list = [...new Set(trackingNumbers.map((t) => t.trim()).filter(Boolean))];
+  const out = new Map<string, Uint8Array>();
+  if (list.length === 0) return out;
+
+  const { PDFDocument } = await import('pdf-lib');
+
+  async function storeSinglePage(
+    tracking: string,
+    source: Awaited<ReturnType<typeof PDFDocument.load>>,
+    pageIndex: number,
+  ) {
+    const one = await PDFDocument.create();
+    const [page] = await one.copyPages(source, [pageIndex]);
+    one.addPage(page!);
+    out.set(tracking, await one.save());
+  }
+
+  async function fetchOne(tracking: string) {
+    const bytes = await fetchPostExAirwayBillChunk(token!, [tracking]);
+    out.set(tracking, new Uint8Array(bytes));
+  }
+
+  for (let i = 0; i < list.length; i += POSTEX_AWB_CHUNK) {
+    const chunk = list.slice(i, i + POSTEX_AWB_CHUNK);
+    try {
+      const bytes = await fetchPostExAirwayBillChunk(token, chunk);
+      const doc = await PDFDocument.load(bytes);
+      const indices = doc.getPageIndices();
+      if (indices.length === chunk.length) {
+        for (let j = 0; j < chunk.length; j++) {
+          await storeSinglePage(chunk[j]!, doc, indices[j]!);
+        }
+      } else if (chunk.length === 1 && indices.length >= 1) {
+        // Multi-page single AWB — keep the whole PDF.
+        out.set(chunk[0]!, new Uint8Array(bytes));
+      } else {
+        // Ambiguous multi-order payload — fetch individually (still parallel).
+        await Promise.all(chunk.map((t) => fetchOne(t)));
+      }
+    } catch {
+      await Promise.all(chunk.map((t) => fetchOne(t)));
+    }
+  }
+
+  return out;
+}
+
 /** Fetch PostEx AWB label PDF(s) for any number of tracking numbers (merged). */
 export async function getPostExAirwayBill(trackingNumbers: string[]): Promise<ArrayBuffer> {
   const token = serverEnv.POSTEX_API_TOKEN;
