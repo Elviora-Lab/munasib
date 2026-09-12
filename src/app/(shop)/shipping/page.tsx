@@ -26,7 +26,7 @@ export default function ShippingPage() {
           as="h1"
           eyebrow="Delivery"
           title="Shipping & returns"
-          description="Everything you need to know about getting Kitchenly to your door — and sending it back if it is not quite right."
+          description="Everything you need to know about getting Munasib to your door — and sending it back if it is not quite right."
         />
 
         <div className="flex flex-col gap-4">
@@ -52,9 +52,9 @@ export default function ShippingPage() {
             To start a return, email{' '}
             <a
               className="font-medium text-foreground underline underline-offset-4"
-              href="mailto:support@kitchenly.com.pk"
+              href={`mailto:${siteConfig.contact.email}`}
             >
-              support@kitchenly.com.pk
+              {siteConfig.contact.email}
             </a>{' '}
             or message us on WhatsApp at{' '}
             <a

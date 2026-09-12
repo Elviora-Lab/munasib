@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 async function loadProductionPixel() {
   vi.resetModules();
   process.env.NEXT_PUBLIC_ENVIRONMENT = 'production';
-  process.env.NEXT_PUBLIC_SITE_URL = 'https://kitchenly.com.pk';
+  process.env.NEXT_PUBLIC_SITE_URL = 'https://munasib.pk';
   process.env.NEXT_PUBLIC_FB_PIXEL_ID = '1491044679492326';
   return import('@/lib/analytics/meta-pixel');
 }

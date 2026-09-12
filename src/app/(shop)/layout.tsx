@@ -1,5 +1,4 @@
 import { ExitIntentNudge, PushPermissionNudge } from '@/components/layout/deferred-client';
-import { ElvioraCrossPromo } from '@/components/layout/elviora-cross-promo';
 import { MobileNav } from '@/components/layout/mobile-nav';
 import { OfferTicker } from '@/components/layout/offer-ticker';
 import { SiteFooter } from '@/components/layout/site-footer';
@@ -18,7 +17,6 @@ export default function ShopLayout({ children }: { children: React.ReactNode }) 
       {/* Strip + header share one sticky stack, so the strip stays pinned too. */}
       <div className="sticky top-0 z-40">
         <OfferTicker />
-        <ElvioraCrossPromo />
         <SiteHeader className="static" />
       </div>
       <main className="flex-1">{children}</main>

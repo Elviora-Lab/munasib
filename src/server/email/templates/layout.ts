@@ -2,15 +2,15 @@ import 'server-only';
 
 import { siteConfig } from '@/config/site';
 
-/** Kitchenly brand tokens — inline styles only (email-client safe). */
-const C = {
-  navy: '#12355B',
-  ink: '#1a2d42',
+/** Munasib brand tokens — inline styles only (email-client safe). */
+export const C = {
+  navy: '#0A2E5C',
+  ink: '#13293F',
   muted: '#5c6b7a',
-  border: '#e8e4dc',
-  sand: '#f7f4ef',
+  border: '#E1EDE6',
+  sand: '#F5FBF8',
   white: '#ffffff',
-  ember: '#e86f1a',
+  ember: '#00B86B',
   success: '#2e7d5b',
   successBg: '#edf7f0',
 } as const;
@@ -31,7 +31,7 @@ type EmailLayoutInput = {
   footerNote?: string;
 };
 
-/** Shared branded wrapper for all Kitchenly transactional emails. */
+/** Shared branded wrapper for all Munasib transactional emails. */
 export function emailLayout({
   preheader,
   title,

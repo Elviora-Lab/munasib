@@ -136,7 +136,7 @@ export function CartDrawer() {
                           aria-hidden
                           className="absolute inset-0 grid place-items-center font-serif text-[9px] uppercase tracking-[0.2em] text-brand-steel/40"
                         >
-                          Kitchenly
+                          Munasib
                         </span>
                       )}
                     </div>

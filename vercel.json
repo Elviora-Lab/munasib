@@ -1,6 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "regions": ["icn1"],
+  "regions": ["bom1"],
   "crons": [
     { "path": "/api/v1/cron/abandoned-cart", "schedule": "0 10 * * *" },
     { "path": "/api/v1/cron/back-in-stock", "schedule": "0 8 * * *" },

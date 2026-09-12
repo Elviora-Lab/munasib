@@ -103,7 +103,7 @@ export async function getShowcaseReviews(take = 12): Promise<ShowcaseReview[]> {
       title: r.title,
       comment: r.comment as string,
       verified: r.isVerifiedPurchase,
-      author: r.user?.firstName?.trim() || r.authorName?.trim() || 'Kitchenly customer',
+      author: r.user?.firstName?.trim() || r.authorName?.trim() || 'Munasib customer',
       productName: r.product.name,
       productSlug: r.product.slug,
       productImage: r.product.images[0]?.imageUrl ?? null,

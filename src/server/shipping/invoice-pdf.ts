@@ -14,6 +14,8 @@ export type InvoiceLine = {
   unitPrice: number;
   totalPrice: number;
   imageUrl: string | null;
+  /** Small JPEG embedded at book time — print skips Shopify when set. */
+  imageJpegBase64?: string | null;
 };
 
 export type InvoiceOrder = {
@@ -73,7 +75,8 @@ async function embedImage(
       type.includes('jpeg') ||
       type.includes('jpg') ||
       lower.includes('.jpg') ||
-      lower.includes('.jpeg')
+      lower.includes('.jpeg') ||
+      lower.includes('format=jpg')
     ) {
       return await doc.embedJpg(bytes);
     }
@@ -88,20 +91,99 @@ async function embedImage(
   }
 }
 
-async function fetchImage(
-  url: string,
-): Promise<{ bytes: Uint8Array; contentType: string | null } | null> {
+/**
+ * Invoice thumbs are ~44pt on the page — never download catalog masters.
+ * Shopify/Cloudinary/Unsplash: native resize. Everything else: weserv → small JPEG
+ * (pdf-lib cannot embed WebP, so output=jpg).
+ */
+export function invoiceThumbUrl(url: string): string {
   try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(8_000) });
+    const u = new URL(url);
+    const host = u.hostname;
+    if (host === 'cdn.shopify.com' || host.endsWith('.shopify.com')) {
+      u.searchParams.set('width', '88');
+      u.searchParams.set('format', 'jpg');
+      return u.toString();
+    }
+    if (host === 'res.cloudinary.com' && u.pathname.includes('/upload/')) {
+      // Avoid stacking transforms if one was already injected.
+      if (!/\/upload\/(?:[^/]+,)*w_/.test(u.pathname)) {
+        const transform = 'w_88,c_limit,q_65,f_jpg';
+        u.pathname = u.pathname.replace('/upload/', `/upload/${transform}/`);
+      }
+      return u.toString();
+    }
+    if (host === 'images.unsplash.com') {
+      u.searchParams.set('w', '88');
+      u.searchParams.set('q', '65');
+      u.searchParams.set('fm', 'jpg');
+      return u.toString();
+    }
+    // Supabase / misc CDNs — force a tiny JPEG via weserv.
+    const params = new URLSearchParams({
+      url: `ssl:${u.host}${u.pathname}${u.search}`,
+      w: '88',
+      output: 'jpg',
+      q: '65',
+    });
+    return `https://images.weserv.nl/?${params.toString()}`;
+  } catch {
+    return url;
+  }
+}
+
+export type PrefetchedInvoiceImage = { bytes: Uint8Array; contentType: string | null };
+
+/** Fetch one invoice thumb (small JPEG when the CDN supports it). */
+export async function fetchInvoiceImage(url: string): Promise<PrefetchedInvoiceImage | null> {
+  const { readPrintCache, writePrintCache } = await import('@/server/shipping/print-local-cache');
+  const cached = await readPrintCache('img', url);
+  if (cached && cached.byteLength > 0) {
+    return { bytes: cached, contentType: 'image/jpeg' };
+  }
+
+  const thumb = invoiceThumbUrl(url);
+  try {
+    const res = await fetch(thumb, {
+      signal: AbortSignal.timeout(3_000),
+      headers: { Accept: 'image/jpeg,image/png,image/*;q=0.8' },
+    });
     if (!res.ok) return null;
     const contentType = res.headers.get('content-type');
-    if (contentType?.includes('webp')) return null; // pdf-lib cannot embed WebP
+    if (contentType?.includes('webp')) return null;
     const buf = new Uint8Array(await res.arrayBuffer());
-    if (buf.byteLength === 0 || buf.byteLength > 2_500_000) return null;
+    // Thumbs should be tiny; reject accidental full-size payloads.
+    if (buf.byteLength === 0 || buf.byteLength > 120_000) return null;
+    void writePrintCache('img', url, buf);
     return { bytes: buf, contentType };
   } catch {
     return null;
   }
+}
+
+/**
+ * Prefetch unique product images once per print pack (same SKU across orders
+ * shares one download).
+ */
+export async function prefetchInvoiceImages(
+  urls: Array<string | null | undefined>,
+): Promise<Map<string, PrefetchedInvoiceImage>> {
+  const unique = [...new Set(urls.map((u) => u?.trim()).filter((u): u is string => Boolean(u)))];
+  const out = new Map<string, PrefetchedInvoiceImage>();
+  let totalBytes = 0;
+  await Promise.all(
+    unique.map(async (url) => {
+      const fetched = await fetchInvoiceImage(url);
+      if (fetched) {
+        out.set(url, fetched);
+        totalBytes += fetched.bytes.byteLength;
+      }
+    }),
+  );
+  console.info(
+    `[invoice-images] requested=${unique.length} ok=${out.size} bytes=${totalBytes} avg=${out.size ? Math.round(totalBytes / out.size) : 0}`,
+  );
+  return out;
 }
 
 function drawText(
@@ -127,9 +209,18 @@ function drawText(
 }
 
 /**
- * Build a Kitchenly invoice PDF (one or more A4 pages) with product thumbnails.
+ * Build a Munasib invoice PDF (one or more A4 pages) with product thumbnails.
+ * Pass a pack-level `imageCache` so duplicate SKUs across orders aren't re-fetched.
  */
-export async function buildKitchenlyInvoicePdf(order: InvoiceOrder): Promise<Uint8Array> {
+export async function buildInvoicePdf(
+  order: InvoiceOrder,
+  opts?: {
+    includeImages?: boolean;
+    imageCache?: Map<string, PrefetchedInvoiceImage>;
+  },
+): Promise<Uint8Array> {
+  const includeImages = opts?.includeImages !== false;
+  const imageCache = opts?.imageCache;
   const doc = await PDFDocument.create();
   const font = await doc.embedFont(StandardFonts.Helvetica);
   const fontBold = await doc.embedFont(StandardFonts.HelveticaBold);
@@ -142,15 +233,29 @@ export async function buildKitchenlyInvoicePdf(order: InvoiceOrder): Promise<Uin
     logo = null;
   }
 
-  // Prefetch line images in parallel (prefer non-webp URLs already chosen by caller).
-  const thumbs: Array<PDFImage | null> = await Promise.all(
-    order.items.map(async (line) => {
-      if (!line.imageUrl) return null;
-      const fetched = await fetchImage(line.imageUrl);
-      if (!fetched) return null;
-      return embedImage(doc, fetched.bytes, fetched.contentType, line.imageUrl);
-    }),
-  );
+  const thumbs: Array<PDFImage | null> = includeImages
+    ? await Promise.all(
+        order.items.map(async (line) => {
+          const key = line.imageUrl ?? `embedded:${line.productName}`;
+          let fetched = imageCache?.get(key) ?? null;
+          if (!fetched && line.imageJpegBase64) {
+            try {
+              fetched = {
+                bytes: Uint8Array.from(Buffer.from(line.imageJpegBase64, 'base64')),
+                contentType: 'image/jpeg',
+              };
+            } catch {
+              fetched = null;
+            }
+          }
+          if (!fetched && line.imageUrl) {
+            fetched = await fetchInvoiceImage(line.imageUrl);
+          }
+          if (!fetched) return null;
+          return embedImage(doc, fetched.bytes, fetched.contentType, line.imageUrl ?? key);
+        }),
+      )
+    : order.items.map(() => null);
 
   let page = doc.addPage([PAGE_W, PAGE_H]);
   let y = PAGE_H - MARGIN;

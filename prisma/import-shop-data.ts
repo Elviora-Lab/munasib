@@ -51,8 +51,8 @@ const DATASETS: Record<string, Dataset> = {
   },
   smtraders: {
     dir: 'smtraders',
-    brandName: 'Kitchenly',
-    brandSlug: 'kitchenly',
+    brandName: 'Munasib',
+    brandSlug: 'munasib',
     skuPrefix: 'SMT',
     // Prefer a concrete product category over the catch-all buckets, so a
     // product tagged "Kitchen Accessories|Random Gadgets" lands in the former.

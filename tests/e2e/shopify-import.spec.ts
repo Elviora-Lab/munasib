@@ -13,7 +13,7 @@ import { sql } from './helpers';
  */
 
 const ADMIN = {
-  email: 'e2e-admin@kitchenly.test',
+  email: 'e2e-admin@munasib.test',
   password: 'E2eAdmin123!',
   // bcrypt of the password above — inserted directly so the spec needs no
   // pre-existing account.

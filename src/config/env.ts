@@ -10,7 +10,7 @@ const apiUrl = z.preprocess(emptyToUndef, z.string().default('/api/v1'));
 
 const publicEnvSchema = z.object({
   NEXT_PUBLIC_SITE_URL: z.string().url().default('http://localhost:3000'),
-  NEXT_PUBLIC_SITE_NAME: z.string().default('Kitchenly'),
+  NEXT_PUBLIC_SITE_NAME: z.string().default('Munasib'),
   NEXT_PUBLIC_API_URL: apiUrl,
   NEXT_PUBLIC_CDN_URL: optionalUrl,
   NEXT_PUBLIC_ENVIRONMENT: z.enum(['development', 'staging', 'production']).default('development'),
@@ -48,9 +48,9 @@ const publicEnvSchema = z.object({
   // Social profiles published in Organization `sameAs`. These are ENTITY
   // claims: Google uses them to decide which real-world business this domain
   // is. Only ever set a URL we actually control — a profile belonging to a
-  // similarly-named business (kitchenly.pk) would invite Google to merge the
-  // two entities, which is the exact opposite of what we need. Unset ⇒ the
-  // property is omitted from the schema entirely, never guessed.
+  // different business would invite Google to merge the two entities, which
+  // is the exact opposite of what we need. Unset ⇒ the property is omitted
+  // from the schema entirely, never guessed.
   NEXT_PUBLIC_SOCIAL_INSTAGRAM: optionalUrl,
   NEXT_PUBLIC_SOCIAL_FACEBOOK: optionalUrl,
   NEXT_PUBLIC_SOCIAL_YOUTUBE: optionalUrl,
@@ -184,7 +184,7 @@ if (typeof window === 'undefined') {
   ) {
     throw new Error(
       `NEXT_PUBLIC_SITE_URL is "${publicEnv.NEXT_PUBLIC_SITE_URL}" in a production build. ` +
-        'Set it to the real public origin (https://kitchenly.com.pk) in the Vercel project ' +
+        'Set it to the real public origin (https://munasib.pk) in the Vercel project ' +
         'environment variables — it is baked into every canonical, Open Graph url, sitemap ' +
         'entry and structured-data url at build time.',
     );

@@ -12,7 +12,7 @@ describe('email templates', () => {
   it('renders order confirmation with line items, COD notice, and plain text', () => {
     const { subject, html, text } = orderConfirmationEmail({
       orderNumber: 'ELV-2026-TEST01',
-      orderUrl: 'https://kitchenly.com.pk/checkout/success/abc',
+      orderUrl: 'https://munasib.pk/checkout/success/abc',
       total: 2500,
       currency: 'PKR',
       subtotal: 2400,
@@ -26,7 +26,7 @@ describe('email templates', () => {
     });
 
     expect(subject).toContain('ELV-2026-TEST01');
-    expect(html).toContain('Kitchenly');
+    expect(html).toContain('Munasib');
     expect(html).toContain('Storage Jar Set');
     expect(html).toContain('Cash on delivery');
     expect(html).toContain('WELCOME10');
@@ -38,7 +38,7 @@ describe('email templates', () => {
   it('renders shipped email with tracking prominently', () => {
     const { html, text } = orderShippedEmail({
       orderNumber: 'ELV-2026-TEST02',
-      orderUrl: 'https://kitchenly.com.pk/checkout/success/xyz',
+      orderUrl: 'https://munasib.pk/checkout/success/xyz',
       courierName: 'PostEx',
       trackingNumber: '25711770000005',
     });

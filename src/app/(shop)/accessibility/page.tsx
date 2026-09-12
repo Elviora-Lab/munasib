@@ -1,11 +1,12 @@
+import { siteConfig } from '@/config/site';
+
 import { buildMetadata } from '@/lib/seo/metadata';
 
 import { Section, SectionHeading } from '@/design-system/primitives/section';
 
 export const metadata = buildMetadata({
   title: 'Accessibility',
-  description:
-    'Our commitment to making the Kitchenly experience usable and welcoming for everyone.',
+  description: 'Our commitment to making the Munasib experience usable and welcoming for everyone.',
   path: '/accessibility',
 });
 
@@ -17,7 +18,7 @@ export default function AccessibilityPage() {
           as="h1"
           eyebrow="Accessibility"
           title="A store for everyone."
-          description="We want every visitor to move through Kitchenly with ease, whatever device or assistive technology they use."
+          description="We want every visitor to move through Munasib with ease, whatever device or assistive technology they use."
         />
 
         <div className="flex flex-col gap-6 text-pretty leading-relaxed text-muted-foreground">
@@ -38,9 +39,9 @@ export default function AccessibilityPage() {
             If you encounter any barrier on our site, please email{' '}
             <a
               className="font-medium text-foreground underline underline-offset-4"
-              href="mailto:support@kitchenly.com.pk"
+              href={`mailto:${siteConfig.contact.email}`}
             >
-              support@kitchenly.com.pk
+              {siteConfig.contact.email}
             </a>{' '}
             and we will do our best to help and to fix the issue.
           </p>

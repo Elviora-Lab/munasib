@@ -37,7 +37,7 @@ export function PurchaseTracker({
   const sent = useRef(false);
   useEffect(() => {
     if (sent.current) return;
-    const key = `kitchenly:purchase-tracked:${orderId}`;
+    const key = `munasib:purchase-tracked:${orderId}`;
     try {
       if (typeof sessionStorage !== 'undefined' && sessionStorage.getItem(key)) return;
       sessionStorage?.setItem(key, '1');

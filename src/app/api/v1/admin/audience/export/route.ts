@@ -35,7 +35,7 @@ export const GET = createHandler(async (req) => {
     status: 200,
     headers: {
       'Content-Type': 'text/csv; charset=utf-8',
-      'Content-Disposition': `attachment; filename="kitchenly-audience-${segment}.csv"`,
+      'Content-Disposition': `attachment; filename="munasib-audience-${segment}.csv"`,
       'Cache-Control': 'no-store',
     },
   });

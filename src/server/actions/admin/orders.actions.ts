@@ -13,6 +13,10 @@ import { BadRequestError, NotFoundError } from '@/server/http/errors';
 import { transitionOrder } from '@/server/services/order-transitions.service';
 import { syncPostExOrder } from '@/server/services/postex-sync.service';
 import {
+  buildPrintAssetsAtBookTime,
+  invoiceSnapshotOrderInclude,
+} from '@/server/shipping/invoice-print-snapshot';
+import {
   cancelPostExOrder,
   createPostExOrder,
   getPostExPaymentStatus,
@@ -77,7 +81,10 @@ const PAYMENT_CLOSED_TO_SETTLEMENT = new Set(['REFUNDED', 'PARTIALLY_REFUNDED', 
 async function bookOrderWithPostEx(orderId: string, changedBy: string) {
   const order = await prisma.order.findUnique({
     where: { id: orderId },
-    include: { items: true, shipments: true },
+    include: {
+      ...invoiceSnapshotOrderInclude,
+      shipments: true,
+    },
   });
   if (!order) throw new NotFoundError('Order not found');
   if (order.shipments.some((s) => s.trackingNumber)) {
@@ -116,6 +123,12 @@ async function bookOrderWithPostEx(orderId: string, changedBy: string) {
       .slice(0, 500),
   });
 
+  // Capture thumbs + AWB now so Invoice+AWB print is DB-only later.
+  const { snapshot: printSnapshot, awbPdf } = await buildPrintAssetsAtBookTime(
+    order,
+    trackingNumber,
+  );
+
   await prisma.shipment.create({
     data: {
       orderId: order.id,
@@ -125,6 +138,8 @@ async function bookOrderWithPostEx(orderId: string, changedBy: string) {
       shipmentStatus: 'LABEL_CREATED',
       trackingStatusText: 'Booked',
       trackingSyncedAt: new Date(),
+      printSnapshot,
+      ...(awbPdf ? { awbPdf: Buffer.from(awbPdf) } : {}),
     },
   });
   await transitionOrder(

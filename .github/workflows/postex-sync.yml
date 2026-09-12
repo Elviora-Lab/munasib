@@ -25,7 +25,7 @@ jobs:
       - name: Call production cron endpoint
         env:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
-          CRON_URL: https://kitchenly.com.pk/api/v1/cron/postex-sync
+          CRON_URL: https://munasib.pk/api/v1/cron/postex-sync
         run: |
           if [ -z "$CRON_SECRET" ]; then
             echo "CRON_SECRET repo secret is not set"

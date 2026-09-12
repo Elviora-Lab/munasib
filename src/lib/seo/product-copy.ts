@@ -104,7 +104,7 @@ const RULES: Rule[] = [
   },
 
   // ---- Claims that are not ours -------------------------------------------
-  // "Hassle free 7 days return policy" is the SOURCE shop's policy. Kitchenly
+  // "Hassle free 7 days return policy" is the SOURCE shop's policy. Munasib
   // publishes 3 days (siteConfig.policy.returnDays). Serving someone else's
   // returns window on our PDP is a false promise to the customer, so this is
   // removed rather than corrected — the real policy is stated on /shipping.

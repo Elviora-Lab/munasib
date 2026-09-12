@@ -19,7 +19,7 @@ import { NavItem } from '@/components/layout/nav-item';
 import { CartDrawerTrigger } from '@/features/cart/components/cart-drawer';
 
 /**
- * Kitchenly header — search-first, two rows on desktop.
+ * Munasib header — search-first, two rows on desktop.
  *
  * Household shopping is utility-driven: people arrive knowing the thing they
  * need ("spice rack", "drain brush"), so the search field gets the header's

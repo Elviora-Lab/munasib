@@ -78,7 +78,7 @@ export function CategoryBento({ categories }: { categories: BentoCategory[] }) {
             data-track="nav"
             data-track-label={`bento:${c.name}`}
             className={cn(
-              'group relative isolate block overflow-hidden rounded-2xl border border-border bg-brand-sand',
+              'group relative isolate block overflow-hidden rounded-[1.75rem] border border-border bg-brand-sand',
               'transition-all duration-300 ease-swift hover:-translate-y-1.5 hover:border-brand-ember/40 hover:shadow-pop',
               'active:scale-[0.985] motion-reduce:transition-none motion-reduce:hover:translate-y-0',
               'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ember focus-visible:ring-offset-2 focus-visible:ring-offset-background',
@@ -101,59 +101,61 @@ export function CategoryBento({ categories }: { categories: BentoCategory[] }) {
                 className="duration-[600ms] object-cover transition-transform ease-swift group-hover:scale-[1.07] motion-reduce:transition-none motion-reduce:group-hover:scale-100"
               />
             ) : (
-              // No image on file — a navy wash still reads as a real tile, and
-              // the scrim below keeps the label contrast identical either way.
-              <div className="absolute inset-0 bg-gradient-to-br from-brand-navy via-brand-slate to-brand-ink" />
+              // No image on file — a warm mint→green wash still reads as a
+              // real tile, on-brand instead of the old moody navy fallback.
+              <div className="absolute inset-0 bg-gradient-to-br from-brand-mist via-brand-sand to-brand-stone" />
             )}
 
-            {/* Two-part scrim: a heavy ink foot for label contrast, plus a navy
-                wash that deepens on hover so the whole tile answers the cursor. */}
+            {/* A soft light-to-transparent lift at the very foot of the photo,
+                just enough for the floating caption card below to sit on a
+                gently graded edge rather than a hard photo cutoff. No dark
+                scrim — the caption card itself, not an overlay, carries the
+                text contrast now. */}
             <div
               aria-hidden
-              className="absolute inset-0 bg-gradient-to-t from-brand-ink via-brand-ink/45 to-transparent"
-            />
-            <div
-              aria-hidden
-              className="absolute inset-0 bg-brand-navy/0 transition-colors duration-300 ease-swift group-hover:bg-brand-navy/25 motion-reduce:transition-none"
+              className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/10 to-transparent"
             />
 
+            {/* Floating rounded caption card — a friendlier "sticker" label
+                instead of text stamped directly onto a darkened photo. Flush
+                to the tile's bottom/side edges (bottom-0, inset-x-0) rather
+                than floating with a margin — a margin here would leave a
+                sliver of the raw photo exposed below the card, which on some
+                supplier photos has text baked directly into the image. */}
             <div
               className={cn(
-                'absolute inset-x-4 bottom-4 flex flex-col text-brand-cloud md:inset-x-5 md:bottom-5',
-                isHero && 'lg:inset-x-7 lg:bottom-7',
+                'absolute inset-x-0 bottom-0 flex flex-col gap-2 rounded-b-[1.75rem] rounded-t-2xl bg-card/95 p-4 shadow-card backdrop-blur-sm',
+                'transition-transform duration-300 ease-swift group-hover:-translate-y-1',
+                'motion-reduce:transition-none motion-reduce:group-hover:translate-y-0',
+                isHero && 'md:p-6',
               )}
             >
               {c.blurb ? (
-                <span className="mb-1.5 hidden truncate text-[11px] font-medium uppercase tracking-[0.16em] text-brand-cloud/75 lg:block">
+                <span className="truncate text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">
                   {c.blurb}
                 </span>
               ) : null}
 
               <span
                 className={cn(
-                  'w-fit font-serif font-semibold leading-[1.05] tracking-tight drop-shadow-sm',
-                  isHero ? 'text-3xl md:text-4xl lg:text-5xl' : 'text-xl md:text-2xl',
+                  'w-fit font-serif font-semibold leading-[1.05] tracking-tight text-foreground',
+                  isHero ? 'text-2xl md:text-3xl lg:text-4xl' : 'text-lg md:text-xl',
                 )}
               >
                 {c.name}
-                {/* Ember underline sweep — the tile's "this is a door" tell. */}
-                <span
-                  aria-hidden
-                  className="mt-1.5 block h-[3px] origin-left scale-x-0 rounded-full bg-brand-ember transition-transform duration-300 ease-swift group-hover:scale-x-100 motion-reduce:transition-none motion-reduce:group-hover:scale-x-100"
-                />
               </span>
 
               {/* Count + arrow share a baseline: the count states the payoff,
                   the arrow states the action. */}
-              <span className="mt-2.5 flex items-center gap-2.5">
-                <span className="rounded-full bg-brand-cloud/15 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] backdrop-blur-sm">
+              <span className="flex items-center justify-between gap-2.5">
+                <span className="rounded-full bg-brand-mist px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-brand-teal">
                   {countLabel}
                 </span>
                 <span
                   aria-hidden
                   className={cn(
-                    'grid size-8 shrink-0 place-items-center rounded-full bg-brand-cloud/15 text-sm text-brand-cloud backdrop-blur-sm',
-                    'transition-all duration-300 ease-snappy group-hover:translate-x-1 group-hover:bg-brand-ember group-hover:text-white group-hover:shadow-glow',
+                    'grid size-8 shrink-0 place-items-center rounded-full bg-brand-ember text-sm text-white',
+                    'transition-all duration-300 ease-snappy group-hover:translate-x-1 group-hover:shadow-glow',
                     'motion-reduce:transition-none motion-reduce:group-hover:translate-x-0',
                   )}
                 >
@@ -162,11 +164,11 @@ export function CategoryBento({ categories }: { categories: BentoCategory[] }) {
               </span>
 
               {c.children?.length ? (
-                <span className="mt-2.5 hidden flex-wrap gap-1.5 opacity-0 transition-opacity duration-300 ease-swift group-hover:opacity-100 motion-reduce:opacity-100 motion-reduce:transition-none lg:flex">
+                <span className="hidden flex-wrap gap-1.5 lg:flex">
                   {c.children.slice(0, isHero ? 4 : 2).map((child) => (
                     <span
                       key={child}
-                      className="rounded-full border border-brand-cloud/20 bg-brand-cloud/10 px-2.5 py-0.5 text-[11px] backdrop-blur-sm"
+                      className="rounded-full border border-border bg-muted px-2.5 py-0.5 text-[11px] text-muted-foreground"
                     >
                       {child}
                     </span>

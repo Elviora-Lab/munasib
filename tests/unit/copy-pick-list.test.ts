@@ -11,7 +11,6 @@ const lines = [
   {
     productName: 'Glass Sipper',
     variantName: null,
-    sku: 'KIT-1',
     size: '450ml',
     shade: null,
     fragrance: null,
@@ -21,7 +20,6 @@ const lines = [
   {
     productName: 'Spice Rack',
     variantName: 'Default',
-    sku: null,
     size: null,
     shade: null,
     fragrance: null,
@@ -37,7 +35,7 @@ describe('pick list formatting', () => {
     expect(text).toContain(
       '=IMAGE("https://cdn.shopify.com/s/files/1/example/sipper.jpg?width=240",4,120,120)',
     );
-    expect(text).toContain('Glass Sipper (450ml) [KIT-1]\t3');
+    expect(text).toContain('Glass Sipper (450ml)\t3');
     expect(text).toContain('\tSpice Rack (Default)\t1');
   });
 
@@ -47,8 +45,8 @@ describe('pick list formatting', () => {
     );
   });
 
-  it('builds display names with variant details', () => {
-    expect(lineDisplayName(lines[0]!)).toBe('Glass Sipper (450ml) [KIT-1]');
+  it('builds display names with variant details (no SKU)', () => {
+    expect(lineDisplayName(lines[0]!)).toBe('Glass Sipper (450ml)');
   });
 
   it('builds shopify width thumbs and weserv for other hosts', () => {

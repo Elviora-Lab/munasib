@@ -1,10 +1,10 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { OrderStatus } from '@prisma/client';
-import { PackageCheck, Printer } from 'lucide-react';
+import { PackageCheck, Printer, Tag } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { cn } from '@/lib/cn';
@@ -70,6 +70,7 @@ export function OrdersTable({ rows }: { rows: Row[] }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkStatus, setBulkStatus] = useState<OrderStatus>('CONFIRMED');
   const [pending, start] = useTransition();
+  const printPrefetchRef = useRef<Promise<void>>(Promise.resolve());
 
   const allSelected = useMemo(
     () => rows.length > 0 && rows.every((r) => selected.has(r.id)),
@@ -89,6 +90,32 @@ export function OrdersTable({ rows }: { rows: Row[] }) {
   const canPack = selectedRows.some(
     (r) => r.fulfillmentStage === 'PRINTED' || r.fulfillmentStage === 'BOOKED',
   );
+
+  const printableIds = useMemo(
+    () => selectedRows.filter((r) => Boolean(r.shipment?.trackingNumber)).map((r) => r.id),
+    [selectedRows],
+  );
+
+  // Warm AWB + thumb disk caches while orders are selected — print then hits cache.
+  useEffect(() => {
+    if (printableIds.length === 0) return;
+    const ac = new AbortController();
+    const ids = printableIds;
+    printPrefetchRef.current = fetch('/api/v1/admin/orders/invoice-awb/prefetch', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ ids }),
+      signal: ac.signal,
+      credentials: 'same-origin',
+    })
+      .then(async (res) => {
+        if (!res.ok) return;
+      })
+      .catch(() => {
+        // Prefetch is best-effort; print still works without it.
+      });
+    return () => ac.abort();
+  }, [printableIds.join(',')]);
 
   function toggleOne(id: string, checked: boolean) {
     setSelected((prev) => {
@@ -127,19 +154,18 @@ export function OrdersTable({ rows }: { rows: Row[] }) {
     });
   }
 
-  /** Kitchenly invoice (photos) + PostEx AWB, interleaved per order. */
-  function printInvoiceAndAwb() {
+  /** Munasib invoices only (no PostEx AWB). */
+  function printInvoices() {
     if (selectedIds.length === 0) return;
-    const printable = selectedRows
-      .filter((r) => Boolean(r.shipment?.trackingNumber))
-      .map((r) => r.id);
+    const printable = printableIds;
     if (printable.length === 0) {
       toast.error('No PostEx tracking on the selected orders — book first');
       return;
     }
     const popup = window.open('about:blank', '_blank');
     start(async () => {
-      const url = `/api/v1/admin/orders/invoice-awb?ids=${encodeURIComponent(printable.join(','))}`;
+      await printPrefetchRef.current.catch(() => undefined);
+      const url = `/api/v1/admin/orders/invoice?ids=${encodeURIComponent(printable.join(','))}`;
       if (popup && !popup.closed) {
         popup.location.href = url;
       } else {
@@ -147,7 +173,34 @@ export function OrdersTable({ rows }: { rows: Row[] }) {
       }
       const skip = selectedIds.length - printable.length;
       toast.success(
-        `Printing ${printable.length} invoice${printable.length === 1 ? '' : 's'} + PostEx AWB${skip > 0 ? ` (${skip} skipped — not booked)` : ''}`,
+        `Printing ${printable.length} invoice${printable.length === 1 ? '' : 's'}${skip > 0 ? ` (${skip} skipped — not booked)` : ''}`,
+      );
+      const unbooked = selectedRows.filter((r) => !r.shipment?.trackingNumber).map((r) => r.id);
+      keepOnly(unbooked);
+      router.refresh();
+    });
+  }
+
+  /** PostEx shipping labels (AWB) only. */
+  function printAwbs() {
+    if (selectedIds.length === 0) return;
+    const printable = printableIds;
+    if (printable.length === 0) {
+      toast.error('No PostEx tracking on the selected orders — book first');
+      return;
+    }
+    const popup = window.open('about:blank', '_blank');
+    start(async () => {
+      await printPrefetchRef.current.catch(() => undefined);
+      const url = `/api/v1/admin/orders/awb?ids=${encodeURIComponent(printable.join(','))}`;
+      if (popup && !popup.closed) {
+        popup.location.href = url;
+      } else {
+        window.open(url, '_blank', 'noopener,noreferrer');
+      }
+      const skip = selectedIds.length - printable.length;
+      toast.success(
+        `Printing ${printable.length} AWB label${printable.length === 1 ? '' : 's'}${skip > 0 ? ` (${skip} skipped — not booked)` : ''}`,
       );
       const unbooked = selectedRows.filter((r) => !r.shipment?.trackingNumber).map((r) => r.id);
       keepOnly(unbooked);
@@ -281,11 +334,20 @@ export function OrdersTable({ rows }: { rows: Row[] }) {
           <Button
             size="sm"
             variant="outline"
-            onClick={printInvoiceAndAwb}
+            onClick={printInvoices}
             loading={pending}
             disabled={!canPrint}
           >
-            <Printer className="size-3.5" /> Invoice + AWB
+            <Printer className="size-3.5" /> Invoice
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={printAwbs}
+            loading={pending}
+            disabled={!canPrint}
+          >
+            <Tag className="size-3.5" /> AWB
           </Button>
           <Button
             size="sm"

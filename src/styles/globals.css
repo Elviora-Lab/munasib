@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 /* ---------------------------------------------------------------
-   Kitchenly — Design Tokens (CSS variables)
+   Munasib — Design Tokens (CSS variables)
    ---------------------------------------------------------------
    All values are HSL channels (no comma, no `hsl()`) so Tailwind can
    apply opacity modifiers via `hsl(var(--token) / <alpha-value>)`.
@@ -11,41 +11,47 @@
 
 @layer base {
   :root {
-    /* — Brand palette — smart-living homeware:
-       deep navy, workshop teal, ember orange, warm sand neutrals. — */
-    --brand-cloud: 40 33% 97%; /* warm white */
-    --brand-sand: 39 30% 93%; /* light beige surface */
-    --brand-stone: 38 24% 84%; /* darker beige / borders on sand */
-    --brand-mist: 187 35% 91%; /* pale teal wash */
-    --brand-teal: 187 62% 30%; /* workshop teal accent */
-    --brand-ember: 24 88% 52%; /* orange CTA accent */
-    --brand-amber: 38 92% 50%; /* rating stars */
-    --brand-steel: 213 16% 52%; /* blue-gray support text on dark */
-    --brand-navy: 211 67% 21%; /* primary #12355B */
-    --brand-slate: 212 40% 15%; /* deep navy-slate */
-    --brand-ink: 212 50% 9%; /* near-black navy */
+    /* — Brand palette — Munasib: deep navy + emerald green, mint neutrals.
+       Token NAMES are kept from the previous (Kitchenly) palette to avoid a
+       ~60-call-site Tailwind class rename (bg-brand-ember, gradient-ember,
+       etc.) — only the underlying color VALUES change here. `ember` now
+       holds the brand green, not orange; `teal` now holds a deep green
+       accent, not teal. Treat the names as opaque token ids, not literal
+       color descriptions (same category of debt as the `elv_at` cookie name
+       left over from the brand before this one — flagged, not hidden). — */
+    --brand-cloud: 150 43% 97%; /* mint-tinted white, exact #F5FBF8 */
+    --brand-sand: 150 35% 93%; /* light mint surface */
+    --brand-stone: 150 26% 84%; /* darker mint / borders on sand */
+    --brand-mist: 155 35% 91%; /* pale green wash */
+    --brand-teal: 155 70% 24%; /* deep green accent (was workshop teal) */
+    --brand-ember: 155 100% 36%; /* brand green CTA accent, exact #00B86B (was ember orange) */
+    --brand-amber: 38 92% 50%; /* rating stars — semantic, not brand; unchanged */
+    --brand-steel: 214 16% 52%; /* blue-gray support text on dark */
+    --brand-navy: 214 80% 20%; /* primary, exact #0A2E5C */
+    --brand-slate: 214 48% 14%; /* deep navy-slate */
+    --brand-ink: 214 60% 9%; /* near-black navy */
 
-    /* — Semantic tokens (light) — warm white + navy ink — */
-    --background: 40 33% 98%;
-    --foreground: 212 45% 12%;
+    /* — Semantic tokens (light) — mint white + navy ink — */
+    --background: 150 43% 98%;
+    --foreground: 214 54% 12%;
 
     --card: 0 0% 100%;
-    --card-foreground: 212 45% 12%;
+    --card-foreground: 214 54% 12%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 212 45% 12%;
+    --popover-foreground: 214 54% 12%;
 
-    --primary: 211 67% 21%;
-    --primary-foreground: 40 33% 98%;
+    --primary: 214 80% 20%;
+    --primary-foreground: 150 43% 98%;
 
-    --secondary: 39 28% 92%;
-    --secondary-foreground: 211 67% 21%;
+    --secondary: 150 28% 92%;
+    --secondary-foreground: 214 80% 20%;
 
-    --muted: 40 22% 93%;
-    --muted-foreground: 212 16% 38%;
+    --muted: 150 22% 93%;
+    --muted-foreground: 214 16% 38%;
 
-    --accent: 187 62% 30%;
-    --accent-foreground: 40 33% 98%;
+    --accent: 155 70% 24%;
+    --accent-foreground: 150 43% 98%;
 
     --destructive: 0 70% 50%;
     --destructive-foreground: 0 0% 100%;
@@ -53,11 +59,13 @@
     --success: 152 46% 36%;
     --success-foreground: 0 0% 100%;
 
-    --border: 38 20% 86%;
-    --input: 38 20% 84%;
-    --ring: 187 62% 30%;
+    --border: 150 20% 86%;
+    --input: 150 20% 84%;
+    --ring: 155 70% 24%;
 
-    --radius: 0.75rem;
+    /* Bumped from 0.75rem — a friendlier, rounder feel across every
+       rounded-lg/md/sm surface (cards, inputs, tiles, images). */
+    --radius: 1.25rem;
 
     /* — Typography — */
     --font-serif: 'Cormorant Garamond', Georgia, serif;
@@ -65,38 +73,38 @@
   }
 
   .dark {
-    /* Navy workshop at night: deep blue-slate base, warm sand ink, ember +
-       teal accents. Practical, not moody. */
-    --background: 212 45% 8%;
-    --foreground: 40 28% 93%;
+    /* Navy at night: deep blue-slate base, mint ink, green accents. Practical,
+       not moody. */
+    --background: 214 55% 8%;
+    --foreground: 150 28% 93%;
 
-    --card: 212 40% 11%;
-    --card-foreground: 40 28% 93%;
+    --card: 214 48% 11%;
+    --card-foreground: 150 28% 93%;
 
-    --popover: 212 42% 10%;
-    --popover-foreground: 40 28% 93%;
+    --popover: 214 50% 10%;
+    --popover-foreground: 150 28% 93%;
 
-    --primary: 40 30% 92%;
-    --primary-foreground: 212 45% 10%;
+    --primary: 150 30% 92%;
+    --primary-foreground: 214 55% 10%;
 
-    --secondary: 212 32% 16%;
-    --secondary-foreground: 40 28% 93%;
+    --secondary: 214 38% 16%;
+    --secondary-foreground: 150 28% 93%;
 
-    --muted: 212 30% 15%;
-    --muted-foreground: 213 18% 70%;
+    --muted: 214 36% 15%;
+    --muted-foreground: 214 18% 70%;
 
-    --accent: 187 55% 45%;
-    --accent-foreground: 212 45% 8%;
+    --accent: 155 65% 45%;
+    --accent-foreground: 214 55% 8%;
 
     --destructive: 0 62% 52%;
     --destructive-foreground: 0 0% 100%;
 
     --success: 152 42% 48%;
-    --success-foreground: 212 45% 8%;
+    --success-foreground: 214 55% 8%;
 
-    --border: 212 26% 19%;
-    --input: 212 26% 19%;
-    --ring: 187 55% 45%;
+    --border: 214 32% 19%;
+    --input: 214 32% 19%;
+    --ring: 155 65% 45%;
   }
 
   * {
@@ -209,30 +217,30 @@
    */
   .surface-cloud {
     @apply bg-gradient-cloud;
-    --background: 40 33% 98%;
-    --foreground: 212 45% 12%;
+    --background: 150 43% 98%;
+    --foreground: 214 54% 12%;
     --card: 0 0% 100%;
-    --card-foreground: 212 45% 12%;
-    --muted: 40 22% 93%;
-    --muted-foreground: 212 20% 32%; /* darker than default for stronger contrast on sand */
-    --border: 38 22% 80%;
-    --input: 38 22% 80%;
-    --primary: 211 67% 21%;
-    --primary-foreground: 40 33% 98%;
+    --card-foreground: 214 54% 12%;
+    --muted: 150 22% 93%;
+    --muted-foreground: 214 20% 32%; /* darker than default for stronger contrast on sand */
+    --border: 150 22% 80%;
+    --input: 150 22% 80%;
+    --primary: 214 80% 20%;
+    --primary-foreground: 150 43% 98%;
     color: hsl(var(--foreground));
   }
   .dark .surface-cloud {
     /* Same overrides apply in dark mode — surface stays light. */
-    --background: 40 33% 98%;
-    --foreground: 212 45% 12%;
+    --background: 150 43% 98%;
+    --foreground: 214 54% 12%;
     --card: 0 0% 100%;
-    --card-foreground: 212 45% 12%;
-    --muted: 40 22% 93%;
-    --muted-foreground: 212 20% 32%;
-    --border: 38 22% 80%;
-    --input: 38 22% 80%;
-    --primary: 211 67% 21%;
-    --primary-foreground: 40 33% 98%;
+    --card-foreground: 214 54% 12%;
+    --muted: 150 22% 93%;
+    --muted-foreground: 214 20% 32%;
+    --border: 150 22% 80%;
+    --input: 150 22% 80%;
+    --primary: 214 80% 20%;
+    --primary-foreground: 150 43% 98%;
     color: hsl(var(--foreground));
   }
 
@@ -242,33 +250,33 @@
    * light-on-light. Muted ink is pushed darker for small text on the tint. */
   .surface-mist {
     @apply bg-gradient-mist;
-    --background: 187 35% 94%;
-    --foreground: 212 45% 12%;
+    --background: 155 35% 94%;
+    --foreground: 214 54% 12%;
     --card: 0 0% 100%;
-    --card-foreground: 212 45% 12%;
-    --muted: 187 25% 88%;
-    --muted-foreground: 212 28% 28%;
-    --border: 187 25% 78%;
-    --input: 187 25% 78%;
-    --primary: 211 67% 21%;
-    --primary-foreground: 40 33% 98%;
-    --accent: 187 62% 26%;
-    --accent-foreground: 40 33% 98%;
+    --card-foreground: 214 54% 12%;
+    --muted: 155 25% 88%;
+    --muted-foreground: 214 28% 28%;
+    --border: 155 25% 78%;
+    --input: 155 25% 78%;
+    --primary: 214 80% 20%;
+    --primary-foreground: 150 43% 98%;
+    --accent: 155 70% 22%;
+    --accent-foreground: 150 43% 98%;
     color: hsl(var(--foreground));
   }
   .dark .surface-mist {
-    --background: 187 35% 94%;
-    --foreground: 212 45% 12%;
+    --background: 155 35% 94%;
+    --foreground: 214 54% 12%;
     --card: 0 0% 100%;
-    --card-foreground: 212 45% 12%;
-    --muted: 187 25% 88%;
-    --muted-foreground: 212 28% 28%;
-    --border: 187 25% 78%;
-    --input: 187 25% 78%;
-    --primary: 211 67% 21%;
-    --primary-foreground: 40 33% 98%;
-    --accent: 187 62% 26%;
-    --accent-foreground: 40 33% 98%;
+    --card-foreground: 214 54% 12%;
+    --muted: 155 25% 88%;
+    --muted-foreground: 214 28% 28%;
+    --border: 155 25% 78%;
+    --input: 155 25% 78%;
+    --primary: 214 80% 20%;
+    --primary-foreground: 150 43% 98%;
+    --accent: 155 70% 22%;
+    --accent-foreground: 150 43% 98%;
     color: hsl(var(--foreground));
   }
 
@@ -277,25 +285,25 @@
    * without per-element color overrides. */
   .surface-navy {
     @apply bg-gradient-navy;
-    --background: 212 45% 10%;
-    --foreground: 40 28% 94%;
-    --card: 212 40% 13%;
-    --card-foreground: 40 28% 94%;
-    --muted: 212 30% 16%;
-    --muted-foreground: 213 20% 72%;
-    --border: 212 26% 22%;
-    --input: 212 26% 22%;
-    --primary: 40 30% 92%;
-    --primary-foreground: 212 45% 10%;
+    --background: 214 55% 10%;
+    --foreground: 150 28% 94%;
+    --card: 214 48% 13%;
+    --card-foreground: 150 28% 94%;
+    --muted: 214 36% 16%;
+    --muted-foreground: 214 20% 72%;
+    --border: 214 32% 22%;
+    --input: 214 32% 22%;
+    --primary: 150 30% 92%;
+    --primary-foreground: 214 55% 10%;
     /* Bright mint on navy — the light-mode success (36% lightness) sinks into
        the band and fails contrast, so lift it well above the dark card. */
     --success: 152 48% 62%;
-    --success-foreground: 212 45% 10%;
-    /* Bright teal on navy — the light-mode accent (30% lightness) would sink
+    --success-foreground: 214 55% 10%;
+    /* Bright green on navy — the light-mode accent (24% lightness) would sink
        into the band and fail contrast for low-vision users. */
-    --accent: 187 60% 55%;
-    --accent-foreground: 212 45% 10%;
-    --ring: 187 60% 55%;
+    --accent: 155 65% 55%;
+    --accent-foreground: 214 55% 10%;
+    --ring: 155 65% 55%;
     color: hsl(var(--foreground));
   }
 

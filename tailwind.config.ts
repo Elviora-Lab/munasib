@@ -68,7 +68,7 @@ const config: Config = {
           DEFAULT: 'hsl(var(--popover) / <alpha-value>)',
           foreground: 'hsl(var(--popover-foreground) / <alpha-value>)',
         },
-        // Brand tokens — Kitchenly smart-living palette
+        // Brand tokens — Munasib navy + green palette
         brand: {
           cloud: 'hsl(var(--brand-cloud) / <alpha-value>)',
           sand: 'hsl(var(--brand-sand) / <alpha-value>)',
@@ -84,9 +84,9 @@ const config: Config = {
         },
       },
       fontFamily: {
-        serif: ['var(--font-serif)', 'Cormorant Garamond', 'Georgia', 'serif'],
-        sans: ['var(--font-sans)', 'Inter', 'system-ui', 'sans-serif'],
-        display: ['var(--font-serif)', 'Cormorant Garamond', 'serif'],
+        serif: ['var(--font-serif)', 'Fredoka', 'ui-rounded', 'sans-serif'],
+        sans: ['var(--font-sans)', 'Nunito', 'system-ui', 'sans-serif'],
+        display: ['var(--font-serif)', 'Fredoka', 'ui-rounded', 'sans-serif'],
       },
       fontSize: {
         'display-2xl': [
@@ -177,9 +177,9 @@ const config: Config = {
         wiggle: 'wiggle 0.4s ease-in-out',
       },
       backgroundImage: {
-        // CTA wash: ember → deep ember.
+        // CTA wash: brand green → deep green.
         'gradient-ember':
-          'linear-gradient(135deg, hsl(var(--brand-ember)) 0%, hsl(24 80% 44%) 100%)',
+          'linear-gradient(135deg, hsl(var(--brand-ember)) 0%, hsl(155 85% 26%) 100%)',
         // Light warm band (hero, feature strips).
         'gradient-cloud':
           'linear-gradient(180deg, hsl(var(--brand-sand)) 0%, hsl(var(--brand-cloud)) 100%)',

@@ -149,24 +149,24 @@ describe('metaDescription', () => {
 describe('productTitle', () => {
   it('appends the price modifier only when the name is short enough to fit', () => {
     expect(productTitle({ name: 'Water Bottle Lifter', seoTitle: null })).toBe(
-      'Water Bottle Lifter Price in Pakistan | Kitchenly',
+      'Water Bottle Lifter Price in Pakistan | Munasib',
     );
   });
 
   it('omits the price modifier on long descriptive names', () => {
     const name = 'Cute Heart-Shaped Jewellery Box — Velvet Interior Organizer';
-    expect(productTitle({ name, seoTitle: null })).toBe(`${name} | Kitchenly`);
+    expect(productTitle({ name, seoTitle: null })).toBe(`${name} | Munasib`);
   });
 
   it('treats a seo_title that differs from the name as a deliberate override', () => {
     expect(productTitle({ name: 'Manual Chopper', seoTitle: 'Speedy Chopper — Best Seller' })).toBe(
-      'Speedy Chopper — Best Seller | Kitchenly',
+      'Speedy Chopper — Best Seller | Munasib',
     );
   });
 
   it('does not double the brand when the override already names it', () => {
-    const title = productTitle({ name: 'Chopper', seoTitle: 'Chopper Deals at Kitchenly' });
-    expect(title.match(/Kitchenly/g)).toHaveLength(1);
+    const title = productTitle({ name: 'Chopper', seoTitle: 'Chopper Deals at Munasib' });
+    expect(title.match(/Munasib/g)).toHaveLength(1);
   });
 });
 
@@ -214,12 +214,6 @@ describe('entity signals', () => {
     const org = organizationJsonLd();
     expect(org['@id']).toBe(`${siteConfig.url}/#organization`);
     expect(org['@type']).toBe('OnlineStore');
-  });
-
-  it('never references the unrelated kitchenly.pk domain', () => {
-    const blob = JSON.stringify([organizationJsonLd(), websiteJsonLd()]);
-    // Matches kitchenly.pk only when NOT preceded by ".com" — so kitchenly.com.pk passes.
-    expect(blob).not.toMatch(/(?<!\.com)\.?\bkitchenly\.pk\b/);
   });
 
   it('points the website node at the organization as publisher', () => {

@@ -467,6 +467,17 @@ export async function isPostExCityServiceable(city: string): Promise<boolean | n
 // ---------------------------------------------------------------------------
 
 const POSTEX_AWB_CHUNK = 10;
+/** Fail before Vercel FUNCTION_INVOCATION_TIMEOUT when PostEx hangs. */
+const POSTEX_AWB_TIMEOUT_MS = 25_000;
+
+function isAbortError(err: unknown): boolean {
+  return (
+    (err instanceof Error && (err.name === 'AbortError' || err.name === 'TimeoutError')) ||
+    (typeof DOMException !== 'undefined' &&
+      err instanceof DOMException &&
+      err.name === 'AbortError')
+  );
+}
 
 /** Fetch one PostEx AWB PDF chunk (≤10 tracking numbers). */
 async function fetchPostExAirwayBillChunk(
@@ -481,10 +492,25 @@ async function fetchPostExAirwayBillChunk(
 
   const qs = new URLSearchParams({ trackingNumbers: list.join(',') });
   // PostEx docs/SDK use hyphenated `get-invoice` — `getinvoice` returns HTTP 404.
-  const res = await fetch(
-    `${BASE_URL}/services/integration/api/order/v1/get-invoice?${qs.toString()}`,
-    { method: 'GET', headers: { token }, cache: 'no-store' },
-  );
+  let res: Response;
+  try {
+    res = await fetch(
+      `${BASE_URL}/services/integration/api/order/v1/get-invoice?${qs.toString()}`,
+      {
+        method: 'GET',
+        headers: { token },
+        cache: 'no-store',
+        signal: AbortSignal.timeout(POSTEX_AWB_TIMEOUT_MS),
+      },
+    );
+  } catch (err) {
+    if (isAbortError(err)) {
+      throw new Error(
+        `PostEx AWB timed out after ${POSTEX_AWB_TIMEOUT_MS / 1000}s (${list.length} tracking)`,
+      );
+    }
+    throw err;
+  }
 
   // On an invalid tracking number PostEx replies HTTP 200 with a JSON error
   // envelope instead of a PDF — surface its message rather than a corrupt file.
@@ -542,20 +568,24 @@ export async function getPostExAirwayBillsByTracking(
     const chunk = list.slice(i, i + POSTEX_AWB_CHUNK);
     try {
       const bytes = await fetchPostExAirwayBillChunk(token, chunk);
+      if (chunk.length === 1) {
+        // Skip split/re-encode for the common single-label path.
+        out.set(chunk[0]!, new Uint8Array(bytes));
+        continue;
+      }
       const doc = await PDFDocument.load(bytes);
       const indices = doc.getPageIndices();
       if (indices.length === chunk.length) {
         for (let j = 0; j < chunk.length; j++) {
           await storeSinglePage(chunk[j]!, doc, indices[j]!);
         }
-      } else if (chunk.length === 1 && indices.length >= 1) {
-        // Multi-page single AWB — keep the whole PDF.
-        out.set(chunk[0]!, new Uint8Array(bytes));
       } else {
         // Ambiguous multi-order payload — fetch individually (still parallel).
         await Promise.all(chunk.map((t) => fetchOne(t)));
       }
-    } catch {
+    } catch (err) {
+      // Don't re-hit PostEx with the same request (timeout / single tracking).
+      if (chunk.length === 1 || isAbortError(err)) throw err;
       await Promise.all(chunk.map((t) => fetchOne(t)));
     }
   }
@@ -699,7 +729,7 @@ export function isPostExPrePickupStatus(raw: string): boolean {
   const s = raw.toLowerCase().trim();
   if (!s || s === 'unknown') return false;
   if (s.includes('unbooked') || s.includes('at merchant') || /\bbooked\b/.test(s)) return true;
-  // PostEx uses the merchant brand: "At Kitchenly Warehouse" — still not collected.
+  // PostEx uses the merchant brand: "At Munasib Warehouse" — still not collected.
   if (/\bat\b/.test(s) && s.includes('warehouse') && !/postex/.test(s)) return true;
   return false;
 }

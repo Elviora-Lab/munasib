@@ -1,3 +1,5 @@
+import { siteConfig } from '@/config/site';
+
 import { buildMetadata } from '@/lib/seo/metadata';
 
 import { Section, SectionHeading } from '@/design-system/primitives/section';
@@ -5,7 +7,7 @@ import { Section, SectionHeading } from '@/design-system/primitives/section';
 export const metadata = buildMetadata({
   title: 'Careers',
   description:
-    'Join the Kitchenly team — we are building a practical home essentials brand and we are always looking for kindred spirits.',
+    'Join the Munasib team — we are building a practical home essentials brand and we are always looking for kindred spirits.',
   path: '/careers',
 });
 
@@ -17,7 +19,7 @@ export default function CareersPage() {
           as="h1"
           eyebrow="Careers"
           title="Build something beautiful with us."
-          description="Kitchenly is a small, ambitious team that cares deeply about product quality, service, and the people we serve."
+          description="Munasib is a small, ambitious team that cares deeply about product quality, service, and the people we serve."
         />
 
         <div className="flex flex-col gap-6 text-pretty leading-relaxed text-muted-foreground">
@@ -28,19 +30,19 @@ export default function CareersPage() {
           </p>
           <p>
             We do not have any open roles posted right now, but we are always glad to meet talented
-            people. If Kitchenly speaks to you, we would love to hear from you.
+            people. If Munasib speaks to you, we would love to hear from you.
           </p>
         </div>
 
         <div className="flex flex-col gap-4">
           <h2 className="editorial-heading text-display-sm">Get in touch</h2>
           <p className="text-pretty leading-relaxed text-muted-foreground">
-            Send your CV and a short note about what draws you to Kitchenly to{' '}
+            Send your CV and a short note about what draws you to Munasib to{' '}
             <a
               className="font-medium text-foreground underline underline-offset-4"
-              href="mailto:support@kitchenly.com.pk"
+              href={`mailto:${siteConfig.contact.email}`}
             >
-              support@kitchenly.com.pk
+              {siteConfig.contact.email}
             </a>
             .
           </p>

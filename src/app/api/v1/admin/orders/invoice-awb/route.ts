@@ -1,3 +1,5 @@
+import { after } from 'next/server';
+
 import { requireAdmin } from '@/server/auth/guards';
 import { createHandler } from '@/server/http/handler';
 import { stampPostExLabelsPrintedByTracking } from '@/server/services/fulfillment-print.service';
@@ -8,7 +10,7 @@ export const runtime = 'nodejs';
 export const maxDuration = 120;
 
 /**
- * Kitchenly invoice (with product photos) + PostEx airway bill, interleaved
+ * Munasib invoice (with product photos) + PostEx airway bill, interleaved
  * per order: invoice → AWB → invoice → AWB …
  * Admin-only. Query: ?ids=uuid,uuid
  */
@@ -29,7 +31,8 @@ export const GET = createHandler(async (req) => {
 
   try {
     const { pdf, trackingNumbers } = await buildInvoiceAndPostExAwbPdf(orderIds);
-    await stampPostExLabelsPrintedByTracking(trackingNumbers, session.sub);
+    // Stamp after the PDF is returned — don't block print on the DB write.
+    after(() => stampPostExLabelsPrintedByTracking(trackingNumbers, session.sub));
     return new Response(Buffer.from(pdf), {
       status: 200,
       headers: {

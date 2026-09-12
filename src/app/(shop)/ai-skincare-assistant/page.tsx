@@ -16,7 +16,7 @@ import { SkinQuiz } from './skin-quiz';
 export const metadata = buildMetadata({
   title: 'Beauty Concierge',
   description:
-    'Get one-to-one product guidance from the Kitchenly team — tell us about your home and we will point you to the right tools.',
+    'Get one-to-one product guidance from the Munasib team — tell us about your home and we will point you to the right tools.',
   path: '/ai-skincare-assistant',
   noIndex: true,
 });
@@ -48,7 +48,7 @@ export default function BeautyConciergePage() {
           <h2 className="editorial-heading text-display-sm">What to expect</h2>
           <ul className="flex flex-col gap-3 text-pretty leading-relaxed text-muted-foreground">
             <li>A relaxed conversation about your goals and current routine.</li>
-            <li>Tailored product suggestions across the Kitchenly range.</li>
+            <li>Tailored product suggestions across the Munasib range.</li>
             <li>Honest advice — including when something is not right for you.</li>
           </ul>
         </div>

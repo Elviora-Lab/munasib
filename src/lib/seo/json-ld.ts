@@ -7,10 +7,9 @@ import { absoluteUrl, clamp, cleanCopy } from './metadata';
 /**
  * Structured data for the whole storefront.
  *
- * ENTITY STRATEGY. An unrelated business runs on `kitchenly.pk`. Search engines
- * disambiguate near-identical brands by the strength and consistency of their
- * entity graph, so every node here is anchored to a stable `@id` rooted at this
- * domain:
+ * ENTITY STRATEGY. Search engines disambiguate similarly-named brands by the
+ * strength and consistency of their entity graph, so every node here is
+ * anchored to a stable `@id` rooted at this domain:
  *
  *   {SITE_URL}/#organization  — the business
  *   {SITE_URL}/#website       — the site, `publisher` → the organization
@@ -55,8 +54,9 @@ type Product = {
 
 /**
  * `OnlineStore` (a subtype of Organization) rather than a bare Organization:
- * it states outright that this domain IS the shop, which is precisely the
- * fact that has to distinguish us from the other Kitchenly.
+ * it states outright that this domain IS the shop, which is the strongest
+ * signal available for disambiguating this entity from any similarly-named
+ * business.
  */
 export function organizationJsonLd() {
   const profiles = socialProfiles();

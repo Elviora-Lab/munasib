@@ -5,7 +5,7 @@ import { Section, SectionHeading } from '@/design-system/primitives/section';
 export const metadata = buildMetadata({
   title: 'Sustainability',
   description:
-    'How Kitchenly approaches responsible retail — durable products, thoughtful packaging, and steady progress.',
+    'How Munasib approaches responsible retail — durable products, thoughtful packaging, and steady progress.',
   path: '/sustainability',
 });
 

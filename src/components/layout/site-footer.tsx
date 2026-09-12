@@ -8,7 +8,7 @@ import { BrandLockup } from '@/components/brand/brand-logo';
 import { NewsletterForm } from '@/components/layout/newsletter-form';
 
 /**
- * Kitchenly footer — a deep navy anchor band. `surface-navy` repins the
+ * Munasib footer — a deep navy anchor band. `surface-navy` repins the
  * semantic tokens, so text, borders, the brand lockup, and the newsletter
  * form all invert automatically without per-element overrides.
  */

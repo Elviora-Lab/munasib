@@ -20,7 +20,7 @@ import { brandsService } from '@/server/services/brands.service';
 import { productsService } from '@/server/services/products.service';
 
 const LIST_DESCRIPTION =
-  'Shop the full Kitchenly range online in Pakistan — kitchen accessories, home and living, organizers, gadgets, beauty, baby and decor. Cash on delivery nationwide.';
+  'Shop the full Munasib range online in Pakistan — kitchen accessories, home and living, organizers, gadgets, beauty, baby and decor. Cash on delivery nationwide.';
 
 /** Fallback TTL; filtered URLs stay dynamic via searchParams, Data Cache still helps. */
 export const revalidate = 600;
@@ -77,7 +77,7 @@ export default async function ProductsPage({
           <span className="eyebrow">Catalog</span>
           <h1 className="editorial-heading text-display-lg">All products</h1>
           <p className="max-w-2xl text-pretty text-sm leading-relaxed text-muted-foreground">
-            Everything Kitchenly stocks, in one place — kitchen tools and storage, home and cleaning
+            Everything Munasib stocks, in one place — kitchen tools and storage, home and cleaning
             essentials, wardrobe organizers, gadgets, beauty, baby and decor. Delivered anywhere in
             Pakistan with cash on delivery.
           </p>

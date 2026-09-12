@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 export function GET() {
   return NextResponse.json({
     status: 'ok',
-    service: 'kitchenly-web',
+    service: 'munasib-web',
     time: new Date().toISOString(),
   });
 }

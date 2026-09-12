@@ -5,17 +5,15 @@ import { categorySeo } from '@/config/category-seo';
 import { routes } from '@/config/routes';
 import { siteConfig } from '@/config/site';
 
+import { cn } from '@/lib/cn';
 import { buildMetadata } from '@/lib/seo/metadata';
 import { FREE_SHIPPING_THRESHOLD } from '@/lib/shipping';
 
-import { ProductCard } from '@/design-system/patterns/product-card';
 import { CountUp } from '@/design-system/primitives/count-up';
 import { Rating } from '@/design-system/primitives/rating';
 import { Reveal } from '@/design-system/primitives/reveal';
 import { Section, SectionHeading } from '@/design-system/primitives/section';
-import { FreeDeliveryBanner } from '@/components/commerce/free-delivery-banner';
 import { PromoCodeChip } from '@/components/commerce/promo-code-chip';
-import { SnapRail } from '@/components/commerce/snap-rail';
 import { Button } from '@/components/ui/button';
 
 import { CategoryBento } from './_components/category-bento';
@@ -23,6 +21,7 @@ import { CodSteps } from './_components/cod-steps';
 import { FlashSaleSection } from './_components/flash-sale-section';
 import { HeroShowcase } from './_components/hero-showcase';
 import { getShowcaseReviews } from './_components/homepage-modules.data';
+import { ProductTabs } from './_components/product-tabs';
 import { ReviewsCarousel } from './_components/reviews-carousel';
 import { SavingsLadder } from './_components/savings-ladder';
 import { StatementMarquee } from './_components/statement-marquee';
@@ -65,11 +64,16 @@ const FREE_DELIVERY_AT = FREE_SHIPPING_THRESHOLD;
 /**
  * "The Honest Ledger" — a decision-journey homepage. The order is the
  * psychology: promise (ticker, in the layout) → attention (hero) → trust
- * (ledger) → routing (bento) → consensus (ranked bestsellers) → economics
- * (savings ladder) → concrete route up the ladder (bundles) → freshness
- * (arrivals) → human proof (navy proof wall) → peak-end close (marquee + COD
- * ritual + gift restated). Every number is fetched or published policy;
- * ember orange appears only on money moments.
+ * (ledger, which also anchors the ticker's #free-delivery deep link) →
+ * routing (bento) → consensus + freshness (bestsellers/new-arrivals tabs,
+ * one section instead of two near-identical stacked ones) → economics
+ * (savings ladder) → concrete route up the ladder (bundles) → human proof
+ * (navy proof wall) → peak-end close (marquee + COD ritual + gift restated).
+ * Every number is fetched or published policy; brand green appears only on
+ * money moments. The free-delivery claim now lives in exactly one place (the
+ * trust ledger) plus the savings ladder's progress-bar payoff — it used to
+ * repeat four times down the page (hero, ledger, a dedicated banner, and the
+ * ladder), which read as noise rather than reassurance.
  */
 export default async function HomePage() {
   // Resilient at build/runtime: a DB hiccup yields an empty section rather
@@ -227,24 +231,60 @@ export default async function HomePage() {
           </div>
 
           <div className="lg:col-span-7">
-            <HeroShowcase products={heroProducts} freeDeliveryAt={FREE_DELIVERY_AT} />
+            <HeroShowcase products={heroProducts} />
           </div>
         </div>
       </Section>
 
       {/* ——— Trust ledger — all four claims at once, lifted onto the hero's
-          bottom edge so it reads as one deliberate card rather than a strip ——— */}
-      <div className="relative z-10 -mt-12 md:-mt-16">
+          bottom edge so it reads as one deliberate card rather than a strip.
+          Carries the #free-delivery anchor: the sticky OfferTicker deep-links
+          here (this is now the sole canonical home for that claim — the old
+          hero footer strip and dedicated FreeDeliveryBanner section were cut
+          as pure repetition of the same tile below). ——— */}
+      <div
+        id="free-delivery"
+        className="relative z-10 -mt-12 scroll-mt-32 md:-mt-16 md:scroll-mt-40"
+      >
         <div className="container">
-          <div className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-border/60 bg-border/60 shadow-pop md:grid-cols-4">
+          {/* surface-cloud pins this strip to always render light, matching the
+              hero above it — without it, a visitor with system dark mode
+              enabled would see this strip flip dark while the hero (which
+              already has this pinning) stayed light, a jarring seam. */}
+          <div className="surface-cloud grid grid-cols-2 gap-px overflow-hidden rounded-[1.75rem] shadow-pop md:grid-cols-4">
             {[
-              { icon: ShieldCheck, title: 'Cash on delivery', sub: 'Nationwide' },
-              { icon: RotateCcw, title: 'Easy returns', sub: 'Within 2–3 days' },
-              { icon: Truck, title: 'Free delivery', sub: 'Over Rs 3,300' },
+              {
+                icon: ShieldCheck,
+                title: 'Cash on delivery',
+                sub: 'Nationwide',
+                chip: 'bg-brand-mist text-brand-teal',
+                hover: 'hover:bg-brand-mist/40',
+              },
+              {
+                icon: RotateCcw,
+                title: 'Easy returns',
+                sub: 'Within 2–3 days',
+                chip: 'bg-brand-navy/10 text-brand-navy',
+                hover: 'hover:bg-brand-navy/5',
+              },
+              {
+                icon: Truck,
+                title: 'Free delivery',
+                sub: 'Over Rs 3,300',
+                chip: 'bg-brand-ember/15 text-brand-ember',
+                hover: 'hover:bg-brand-ember/5',
+              },
             ].map((s, i) => (
               <Reveal key={s.title} inView delay={i * 0.06} className="bg-card">
-                <div className="flex h-full min-h-11 items-center gap-3 px-4 py-5 transition-colors duration-300 ease-swift hover:bg-brand-mist/40 md:justify-center">
-                  <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-brand-mist text-brand-teal ring-1 ring-inset ring-brand-teal/15">
+                <div
+                  className={cn(
+                    'flex h-full min-h-11 items-center gap-3 px-4 py-5 transition-colors duration-300 ease-swift md:justify-center',
+                    s.hover,
+                  )}
+                >
+                  <span
+                    className={cn('grid size-12 shrink-0 place-items-center rounded-2xl', s.chip)}
+                  >
                     <s.icon className="size-5" />
                   </span>
                   <span className="flex flex-col leading-tight">
@@ -256,7 +296,7 @@ export default async function HomePage() {
             ))}
             <Reveal inView delay={0.18} className="bg-card">
               <div className="flex h-full min-h-11 items-center gap-3 px-4 py-5 transition-colors duration-300 ease-swift hover:bg-brand-amber/5 md:justify-center">
-                <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-brand-amber/15 text-brand-amber ring-1 ring-inset ring-brand-amber/25">
+                <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-brand-amber/15 text-brand-amber">
                   {proofGate ? (
                     <Star className="size-5 fill-current" />
                   ) : (
@@ -285,12 +325,6 @@ export default async function HomePage() {
         </div>
       </div>
 
-      <Section id="free-delivery" size="sm" className="scroll-mt-56 py-10 md:scroll-mt-64 md:py-12">
-        <div className="container">
-          <FreeDeliveryBanner variant="home" />
-        </div>
-      </Section>
-
       {/* ——— Flash sale — urgency, straight after the trust ledger ——— */}
       {flashSale && <FlashSaleSection sale={flashSale} />}
 
@@ -308,63 +342,16 @@ export default async function HomePage() {
         </Section>
       )}
 
-      {/* ——— The bestseller ledger — ranked consensus ——— */}
-      {bestsellers.length > 0 && (
+      {/* ——— Bestsellers / New arrivals — ranked consensus and freshness,
+          one section instead of two near-identical stacked ones ——— */}
+      {(bestsellers.length > 0 || newArrivals.length > 0) && (
         <Section className="border-t border-border/60 bg-muted/50">
-          <div className="container flex flex-col gap-8">
-            <div className="flex flex-wrap items-end justify-between gap-4">
-              <SectionHeading
-                eyebrow="Proven by repeat orders"
-                title="The bestseller ledger"
-                description="Ranked by real orders — the things customers come back for."
-              />
-              <Link
-                href="/products?sort=best-sellers"
-                className="text-sm font-semibold text-accent underline-offset-4 hover:underline"
-              >
-                See the full ledger →
-              </Link>
-            </div>
-
-            {/* Desktop: ranked grid. */}
-            <div className="hidden grid-cols-3 gap-5 md:grid lg:grid-cols-4">
-              {bestsellers.slice(0, 8).map((product, i) => (
-                <Reveal key={product.id} inView delay={(i % 4) * 0.06}>
-                  <ProductCard
-                    product={product}
-                    listId="home_bestsellers"
-                    listName="Home — Best sellers"
-                    index={i}
-                    rank={i < 3 ? i + 1 : undefined}
-                  />
-                </Reveal>
-              ))}
-            </div>
-
-            {/* Mobile: snap rail with progress thread + end-cap. */}
-            <div className="md:hidden">
-              <SnapRail ariaLabel="Best sellers" itemClassName="w-[72vw] max-w-72">
-                {[
-                  ...bestsellers
-                    .slice(0, 8)
-                    .map((product, i) => (
-                      <ProductCard
-                        key={product.id}
-                        product={product}
-                        listId="home_bestsellers"
-                        listName="Home — Best sellers"
-                        index={i}
-                        rank={i < 3 ? i + 1 : undefined}
-                      />
-                    )),
-                  <EndCap
-                    key="endcap"
-                    href="/products?sort=best-sellers"
-                    label={`See all ${productCount.toLocaleString('en-US')}`}
-                  />,
-                ]}
-              </SnapRail>
-            </div>
+          <div className="container">
+            <ProductTabs
+              bestsellers={bestsellers}
+              newArrivals={newArrivals}
+              productCount={productCount}
+            />
           </div>
         </Section>
       )}
@@ -383,64 +370,9 @@ export default async function HomePage() {
             <SectionHeading
               eyebrow="Curated for value"
               title="Picks that pull their weight"
-              description="Popular together — and a shortcut past the free-delivery line."
+              description="Popular together — and priced to save more than buying separately."
             />
             <ValuePicks products={bundles} />
-          </div>
-        </Section>
-      )}
-
-      {/* ——— Just landed — freshness, with restraint ——— */}
-      {newArrivals.length > 0 && (
-        <Section size="sm" className="py-14 md:py-20">
-          <div className="container flex flex-col gap-8">
-            <div className="flex flex-wrap items-end justify-between gap-4">
-              <SectionHeading
-                eyebrow="Fresh this week"
-                title="Just landed"
-                description="The newest additions to the shelf."
-              />
-              <Link
-                href="/products?sort=newly-added"
-                className="text-sm font-semibold text-accent underline-offset-4 hover:underline"
-              >
-                Everything new →
-              </Link>
-            </div>
-
-            {/* Desktop: one restrained row. */}
-            <div className="hidden grid-cols-4 gap-5 md:grid">
-              {newArrivals.slice(0, 4).map((product, i) => (
-                <Reveal key={product.id} inView delay={i * 0.06}>
-                  <ProductCard
-                    product={{ ...product, isNew: true }}
-                    listId="home_new_arrivals"
-                    listName="Home — New arrivals"
-                    index={i}
-                  />
-                </Reveal>
-              ))}
-            </div>
-
-            {/* Mobile: full rail of 8. */}
-            <div className="md:hidden">
-              <SnapRail ariaLabel="New arrivals" itemClassName="w-[72vw] max-w-72">
-                {[
-                  ...newArrivals
-                    .slice(0, 8)
-                    .map((product, i) => (
-                      <ProductCard
-                        key={product.id}
-                        product={{ ...product, isNew: true }}
-                        listId="home_new_arrivals"
-                        listName="Home — New arrivals"
-                        index={i}
-                      />
-                    )),
-                  <EndCap key="endcap" href="/products?sort=newly-added" label="View all new" />,
-                ]}
-              </SnapRail>
-            </div>
           </div>
         </Section>
       )}
@@ -531,20 +463,5 @@ function StarMeter({ average }: { average: number }) {
         </div>
       </div>
     </div>
-  );
-}
-
-/** Rail end-cap — the "see everything" card that closes a snap rail. */
-function EndCap({ href, label }: { href: string; label: string }) {
-  return (
-    <Link
-      href={href}
-      className="flex h-full min-h-72 w-40 flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-accent/50 bg-card text-center transition-colors hover:border-accent hover:bg-accent/5"
-    >
-      <span className="grid size-11 place-items-center rounded-full bg-accent/10 text-accent">
-        <ArrowRight className="size-5" />
-      </span>
-      <span className="px-3 text-sm font-semibold text-accent">{label}</span>
-    </Link>
   );
 }

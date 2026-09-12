@@ -38,7 +38,7 @@ async function orderRecipient(orderId: string) {
 
 // Registration guard on globalThis so listeners attach exactly once per
 // process even if this module is evaluated in more than one bundle context.
-const globalForListeners = globalThis as unknown as { __kitchenlyListenersReady?: boolean };
+const globalForListeners = globalThis as unknown as { __munasibListenersReady?: boolean };
 
 const publicOrderUrl = (orderId: string) => `${siteConfig.url}/checkout/success/${orderId}`;
 
@@ -56,8 +56,8 @@ const publicOrderUrl = (orderId: string) => `${siteConfig.url}/checkout/success/
  * bus (see the Stripe webhook, which updates order state directly).
  */
 export function registerEventListeners() {
-  if (globalForListeners.__kitchenlyListenersReady) return;
-  globalForListeners.__kitchenlyListenersReady = true;
+  if (globalForListeners.__munasibListenersReady) return;
+  globalForListeners.__munasibListenersReady = true;
 
   events.on('user.registered', async ({ email, name }) => {
     const { subject, html } = welcomeEmail({ name });

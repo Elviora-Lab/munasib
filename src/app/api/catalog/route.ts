@@ -35,7 +35,7 @@ function csvCell(value: string | number | null | undefined): string {
 
 export async function GET() {
   const siteUrl = publicEnv.NEXT_PUBLIC_SITE_URL.replace(/\/+$/, '');
-  const brandName = publicEnv.NEXT_PUBLIC_SITE_NAME || 'Kitchenly';
+  const brandName = publicEnv.NEXT_PUBLIC_SITE_NAME || 'Munasib';
 
   const products = await prisma.product.findMany({
     where: { isActive: true },

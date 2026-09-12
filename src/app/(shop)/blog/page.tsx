@@ -12,7 +12,7 @@ import { blogRepo } from '@/server/repositories/blog.repo';
 export const metadata = buildMetadata({
   title: 'Home Guides — Organization & Kitchen Tips for Pakistani Homes',
   description:
-    'Practical home guides from Kitchenly — closet and kitchen organization ideas, storage tips, and product know-how, with links to the products that solve each problem.',
+    'Practical home guides from Munasib — closet and kitchen organization ideas, storage tips, and product know-how, with links to the products that solve each problem.',
   path: '/blog',
 });
 
@@ -33,7 +33,7 @@ export default async function BlogIndexPage() {
           as="h1"
           eyebrow="Home Guides"
           title="Make your space work harder."
-          description="Practical organization ideas, kitchen tips, and product know-how from the Kitchenly team."
+          description="Practical organization ideas, kitchen tips, and product know-how from the Munasib team."
         />
 
         {posts.length === 0 ? (

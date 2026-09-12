@@ -10,10 +10,10 @@ import { Section, SectionHeading } from '@/design-system/primitives/section';
 import { ContactLink } from '@/components/analytics/pixel-trackers';
 
 const DESCRIPTION =
-  'Contact Kitchenly — email, phone and WhatsApp support for orders, delivery and returns anywhere in Pakistan. We reply within one business day.';
+  'Contact Munasib — email, phone and WhatsApp support for orders, delivery and returns anywhere in Pakistan. We reply within one business day.';
 
 export const metadata = buildMetadata({
-  title: 'Contact Kitchenly — Customer Support in Pakistan',
+  title: 'Contact Munasib — Customer Support in Pakistan',
   description: DESCRIPTION,
   path: '/contact',
 });
@@ -104,9 +104,9 @@ export default function ContactPage() {
         <div className="flex flex-col gap-2 text-sm text-muted-foreground">
           <p>Customer care hours: Monday to Saturday, 10am to 7pm (PKT).</p>
           <p>
-            Kitchenly ships from {business.city}, {business.region}, to every province in{' '}
-            {business.countryName}. We trade online only at kitchenly.com.pk — there is no walk-in
-            store.
+            Munasib ships from {business.city}, {business.region}, to every province in{' '}
+            {business.countryName}. We trade online only at{' '}
+            {siteConfig.url.replace(/^https?:\/\//, '')} — there is no walk-in store.
           </p>
         </div>
       </div>

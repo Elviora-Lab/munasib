@@ -1,14 +1,17 @@
+import { Suspense } from 'react';
 import Link from 'next/link';
 import { type OrderStatus } from '@prisma/client';
 import { z } from 'zod';
 
 import { cn } from '@/lib/cn';
 import { buildMetadata } from '@/lib/seo/metadata';
+import { storeDateRangeFilter } from '@/utils/time';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 
 import { CopyPickListButton } from './copy-pick-list';
+import { PendingItemsDateRange } from './date-range';
 import { ProductCell } from './product-cell';
 
 import { adminOrdersRepo } from '@/server/repositories/admin.repo';
@@ -23,36 +26,86 @@ const OPEN_STATUSES = [
   'PROCESSING',
 ] as const satisfies readonly OrderStatus[];
 
+const STAGE_VALUES = ['NEEDS_BOOKING', 'BOOKED', 'PRINTED', 'PACKED', 'LEFTOVER'] as const;
 const VIEWS = ['pick', 'orders'] as const;
+const daySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
 const filterSchema = z.object({
   status: z.enum(OPEN_STATUSES).optional(),
+  stage: z.enum(STAGE_VALUES).optional(),
   view: z.enum(VIEWS).optional(),
+  from: daySchema.optional(),
+  to: daySchema.optional(),
 });
 
-type Props = { searchParams: Promise<{ status?: string; view?: string }> };
+type Props = {
+  searchParams: Promise<{
+    status?: string;
+    stage?: string;
+    view?: string;
+    from?: string;
+    to?: string;
+  }>;
+};
+
+function hrefFor(opts: {
+  status?: OrderStatus;
+  stage?: (typeof STAGE_VALUES)[number];
+  view?: (typeof VIEWS)[number];
+  from?: string;
+  to?: string;
+}) {
+  const params = new URLSearchParams();
+  if (opts.stage) params.set('stage', opts.stage);
+  else if (opts.status) params.set('status', opts.status);
+  if (opts.view === 'orders') params.set('view', 'orders');
+  if (opts.from) params.set('from', opts.from);
+  if (opts.to) params.set('to', opts.to);
+  const qs = params.toString();
+  return qs ? `/admin/orders/pending-items?${qs}` : '/admin/orders/pending-items';
+}
 
 export default async function AdminPendingItemsPage({ searchParams }: Props) {
   const raw = await searchParams;
-  const { status, view: rawView } = filterSchema.parse({
+  const parsed = filterSchema.safeParse({
     status: raw.status,
+    stage: raw.stage,
     view: raw.view,
+    from: raw.from,
+    to: raw.to,
   });
-  // Default: PENDING only — every checkout starts there.
-  const statuses: OrderStatus[] = status ? [status] : ['PENDING'];
+  const { status, stage, view: rawView, from, to } = parsed.success ? parsed.data : {};
   const view = rawView ?? 'pick';
-  const pickHref = status
-    ? `/admin/orders/pending-items?status=${status}`
-    : '/admin/orders/pending-items';
-  const ordersHref = status
-    ? `/admin/orders/pending-items?status=${status}&view=orders`
-    : '/admin/orders/pending-items?view=orders';
 
-  const { aggregated, orders } = await adminOrdersRepo.pendingItems(statuses);
+  // Default: all open statuses so booked/processing work still appears for pick/copy.
+  const statuses: OrderStatus[] = stage
+    ? ['CONFIRMED', 'PROCESSING']
+    : status
+      ? [status]
+      : [...OPEN_STATUSES];
+
+  const dateRange = storeDateRangeFilter(from, to);
+  // If user swapped from/to, still return a sensible window.
+  const createdFrom = dateRange?.gte;
+  const createdToExclusive = dateRange?.lt;
+
+  const { aggregated, orders } = await adminOrdersRepo.pendingItems({
+    statuses,
+    stage,
+    createdFrom,
+    createdToExclusive,
+  });
 
   const totalUnits = aggregated.reduce((sum, row) => sum + row.totalQuantity, 0);
-  const uniqueSkus = aggregated.length;
-  const statusLabel = status ? status.toLowerCase() : 'pending';
+  const uniqueLines = aggregated.length;
+  const dateLabel = from || to ? ` · ${from || '…'} → ${to || '…'}` : '';
+  const filterLabel = `${
+    stage ? stage.replaceAll('_', ' ').toLowerCase() : status ? status.toLowerCase() : 'all open'
+  }${dateLabel}`;
+
+  const showStageChips =
+    !status || status === 'PROCESSING' || status === 'CONFIRMED' || Boolean(stage);
+  const range = { from, to };
 
   return (
     <div className="flex max-w-5xl flex-col gap-6">
@@ -67,17 +120,25 @@ export default async function AdminPendingItemsPage({ searchParams }: Props) {
           <div>
             <h1 className="editorial-heading text-display-md">Pending items</h1>
             <p className="text-sm text-muted-foreground">
-              What still needs packing from {statusLabel} orders.
+              Pick list for {filterLabel} orders — copy anytime, even after PostEx booking.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <CopyPickListButton
               lines={aggregated}
-              statusLabel={statusLabel}
+              statusLabel={filterLabel.replace(/\s+/g, '-')}
               orderCount={orders.length}
             />
             <Button asChild size="sm" variant="outline">
-              <Link href={`/admin/orders?status=${status ?? 'PENDING'}`}>Open orders →</Link>
+              <Link
+                href={
+                  stage
+                    ? `/admin/orders?stage=${stage}`
+                    : `/admin/orders?status=${status ?? 'PROCESSING'}`
+                }
+              >
+                Open orders →
+              </Link>
             </Button>
           </div>
         </div>
@@ -85,39 +146,75 @@ export default async function AdminPendingItemsPage({ searchParams }: Props) {
 
       <div className="grid gap-3 sm:grid-cols-3">
         <Stat label="Units to pack" value={totalUnits.toLocaleString()} />
-        <Stat label="Distinct lines" value={uniqueSkus.toLocaleString()} />
+        <Stat label="Distinct lines" value={uniqueLines.toLocaleString()} />
         <Stat label="Orders" value={orders.length.toLocaleString()} />
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap gap-2">
-          <FilterChip
-            href={`/admin/orders/pending-items${view === 'orders' ? '?view=orders' : ''}`}
-            active={!status}
-            label="Pending"
-          />
-          {OPEN_STATUSES.filter((s) => s !== 'PENDING').map((s) => (
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap gap-2">
             <FilterChip
-              key={s}
-              href={`/admin/orders/pending-items?status=${s}${view === 'orders' ? '&view=orders' : ''}`}
-              active={status === s}
-              label={s.charAt(0) + s.slice(1).toLowerCase()}
+              href={hrefFor({ view, ...range })}
+              active={!status && !stage}
+              label="All open"
             />
-          ))}
+            {OPEN_STATUSES.map((s) => (
+              <FilterChip
+                key={s}
+                href={hrefFor({ status: s, view, ...range })}
+                active={status === s && !stage}
+                label={s.charAt(0) + s.slice(1).toLowerCase()}
+              />
+            ))}
+          </div>
+
+          <div
+            role="tablist"
+            aria-label="Pending items view"
+            className="inline-flex h-10 items-center gap-1 rounded-md bg-muted p-1"
+          >
+            <ViewTab
+              href={hrefFor({ status, stage, view: 'pick', ...range })}
+              active={view === 'pick'}
+              label={`Pick list (${uniqueLines})`}
+            />
+            <ViewTab
+              href={hrefFor({ status, stage, view: 'orders', ...range })}
+              active={view === 'orders'}
+              label={`By order (${orders.length})`}
+            />
+          </div>
         </div>
 
-        <div
-          role="tablist"
-          aria-label="Pending items view"
-          className="inline-flex h-10 items-center gap-1 rounded-md bg-muted p-1"
-        >
-          <ViewTab href={pickHref} active={view === 'pick'} label={`Pick list (${uniqueSkus})`} />
-          <ViewTab
-            href={ordersHref}
-            active={view === 'orders'}
-            label={`By order (${orders.length})`}
-          />
-        </div>
+        <Suspense fallback={null}>
+          <PendingItemsDateRange />
+        </Suspense>
+
+        {showStageChips ? (
+          <div className="flex flex-col gap-2">
+            <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">
+              Fulfillment stage — use after booking to rebuild the pick list
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {(
+                [
+                  ['NEEDS_BOOKING', 'Needs booking'],
+                  ['BOOKED', 'Booked'],
+                  ['PRINTED', 'Printed'],
+                  ['PACKED', 'Packed'],
+                  ['LEFTOVER', 'Leftover'],
+                ] as const
+              ).map(([key, label]) => (
+                <FilterChip
+                  key={key}
+                  href={hrefFor({ stage: key, view, ...range })}
+                  active={stage === key}
+                  label={label}
+                />
+              ))}
+            </div>
+          </div>
+        ) : null}
       </div>
 
       {view === 'pick' ? (
@@ -135,7 +232,7 @@ export default async function AdminPendingItemsPage({ searchParams }: Props) {
                 {aggregated.length === 0 ? (
                   <tr>
                     <td colSpan={3} className="px-4 py-12 text-center text-muted-foreground">
-                      Nothing to pack for {statusLabel} orders.
+                      Nothing to pack for {filterLabel} orders.
                     </td>
                   </tr>
                 ) : (
@@ -149,7 +246,6 @@ export default async function AdminPendingItemsPage({ searchParams }: Props) {
                           productName={row.productName}
                           productSlug={row.productSlug}
                           imageUrl={row.imageUrl}
-                          sku={row.sku}
                           variantName={row.variantName}
                           size={row.size}
                           shade={row.shade}
@@ -185,6 +281,15 @@ export default async function AdminPendingItemsPage({ searchParams }: Props) {
                 .trim();
               const customer = order.shippingFullName || nameFromUser || order.user?.email || '—';
               const units = order.items.reduce((sum, item) => sum + item.quantity, 0);
+              const orderLines = order.items.map((item) => ({
+                productName: item.productName,
+                variantName: item.variantName,
+                size: item.size,
+                shade: item.shade,
+                fragrance: item.fragrance,
+                totalQuantity: item.quantity,
+                imageUrl: item.imageUrl,
+              }));
 
               return (
                 <Card key={order.id}>
@@ -206,6 +311,9 @@ export default async function AdminPendingItemsPage({ searchParams }: Props) {
                             {order.shippingPhone}
                           </a>
                         ) : null}
+                        {order.trackingNumber ? (
+                          <span className="font-mono">{order.trackingNumber}</span>
+                        ) : null}
                         <span>{order.createdAt.toLocaleString('en-PK')}</span>
                       </div>
                     </div>
@@ -215,6 +323,11 @@ export default async function AdminPendingItemsPage({ searchParams }: Props) {
                       <span className="tabular-nums text-muted-foreground">
                         {units} unit{units === 1 ? '' : 's'}
                       </span>
+                      <CopyPickListButton
+                        lines={orderLines}
+                        statusLabel={order.orderNumber}
+                        compact
+                      />
                     </div>
                   </div>
                   <CardContent className="overflow-x-auto p-0">
@@ -227,7 +340,6 @@ export default async function AdminPendingItemsPage({ searchParams }: Props) {
                                 productName={item.productName}
                                 productSlug={item.productSlug}
                                 imageUrl={item.imageUrl}
-                                sku={item.sku}
                                 variantName={item.variantName}
                                 size={item.size}
                                 shade={item.shade}

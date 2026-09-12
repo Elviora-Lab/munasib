@@ -990,6 +990,11 @@ model Shipment {
   /// Staff marked the parcel packed / arranged.
   packedAt           DateTime?      @map("packed_at") @db.Timestamptz
   packedBy           String?        @map("packed_by") @db.Uuid
+  /// Denormalized invoice payload (lines + image URLs) captured at book time
+  /// so Invoice+AWB print avoids deep catalog joins on every pack.
+  printSnapshot      Json?          @map("print_snapshot")
+  /// PostEx AWB PDF bytes captured at book time so print skips the courier API.
+  awbPdf             Bytes?         @map("awb_pdf")
 
   order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
 

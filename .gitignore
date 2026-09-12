@@ -156,3 +156,4 @@ elviora_db_dump.sql
 /test-results/
 /playwright-report/
 /playwright/.cache/
+tmp/

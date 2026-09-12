@@ -3,18 +3,22 @@ import { siteConfig } from '@/config/site';
 import { cn } from '@/lib/cn';
 
 /**
- * Kitchenly brand mark — pure SVG, no image asset.
+ * Munasib brand mark — pure SVG, no image asset.
  *
- * A rounded tile with a geometric "K" and an ember "burner-on" dot. Colors
- * ride the semantic tokens (primary / primary-foreground), so the mark
- * adapts automatically on light pages, dark mode, and navy bands
- * (surface-navy repins the tokens and the tile inverts by itself). The
- * ember dot is the one constant — the brand's pilot light.
+ * A rounded bag/tag outline with a bold "M" inside, matching the approved
+ * logo artwork exactly (same path data as `src/app/icon.svg`). Unlike the
+ * old geometric "K" mark, this one uses FIXED brand hex colors rather than
+ * the semantic primary/primary-foreground tokens — it's a literal approved
+ * mark meant to look identical everywhere, the same reasoning that made the
+ * old design's ember dot a fixed color regardless of theme. The mint card
+ * fill is self-contained, so the mark reads correctly on both the light
+ * header and the dark `surface-navy` footer band without a separate
+ * "inverted" variant.
  *
  * Variants:
- *  - "mark":      square tile only, sits beside the wordmark in tight layouts
+ *  - "mark":      bag/tag glyph only, sits beside the wordmark in tight layouts
  *  - "wordmark":  text-only treatment
- *  - "stack":     large tile + tagline (auth-side panels)
+ *  - "stack":     large mark + tagline (auth-side panels)
  */
 type Variant = 'mark' | 'wordmark' | 'stack';
 
@@ -31,29 +35,36 @@ function Mark({ size, className }: { size: number; className?: string }) {
     <svg
       width={size}
       height={size}
-      viewBox="0 0 48 48"
+      viewBox="36 18 498 536"
       role="img"
       aria-label={siteConfig.name}
       className={cn('shrink-0', className)}
     >
-      <rect x="1" y="1" width="46" height="46" rx="12" className="fill-primary" />
-      {/* Geometric K */}
+      <rect
+        x="70"
+        y="180"
+        width="430"
+        height="340"
+        rx="72"
+        fill="#F5FBF8"
+        stroke="#00B86B"
+        strokeWidth="28"
+      />
       <path
-        d="M16 13v22"
-        className="stroke-primary-foreground"
-        strokeWidth="4.5"
+        d="M178 192V156C178 91 226 52 285 52C344 52 392 91 392 156V192"
+        fill="none"
+        stroke="#00B86B"
+        strokeWidth="28"
         strokeLinecap="round"
       />
       <path
-        d="M31 14 18.5 25.5 32 35"
+        d="M145 455V286L285 408L425 286V455"
         fill="none"
-        className="stroke-primary-foreground"
-        strokeWidth="4.5"
+        stroke="#0A2E5C"
+        strokeWidth="48"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      {/* Ember pilot light */}
-      <circle cx="36.5" cy="36.5" r="3.5" className="fill-brand-ember" />
     </svg>
   );
 }
@@ -81,7 +92,7 @@ export function BrandLogo({ variant = 'mark', size = 36, className }: BrandLogoP
 function Wordmark({ size, className }: { size: number; className?: string }) {
   return (
     <span
-      className={cn('font-serif font-semibold tracking-tight text-foreground', className)}
+      className={cn('font-sans font-extrabold tracking-tight text-foreground', className)}
       style={{ fontSize: size * 1.4, lineHeight: 1 }}
     >
       {siteConfig.name}

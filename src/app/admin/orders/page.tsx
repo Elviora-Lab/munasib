@@ -1,6 +1,6 @@
 import { Suspense } from 'react';
 import Link from 'next/link';
-import { OrderStatus } from '@prisma/client';
+import { OrderStatus, PaymentStatus } from '@prisma/client';
 import { z } from 'zod';
 
 import {
@@ -16,44 +16,85 @@ import { Card, CardContent } from '@/components/ui/card';
 import { OrdersSearch } from './orders-search';
 import { OrdersTable } from './orders-table';
 
-import { adminOrdersRepo } from '@/server/repositories/admin.repo';
+import { AdminListPagination } from '@/app/admin/_components/admin-list-pagination';
+import { type AdminOrderSort, adminOrdersRepo } from '@/server/repositories/admin.repo';
 
 export const metadata = buildMetadata({ title: 'Admin · Orders', noIndex: true });
 export const dynamic = 'force-dynamic';
 
+const PAGE_SIZE = 50;
 const statusValues = Object.values(OrderStatus);
+const paymentValues = Object.values(PaymentStatus);
 const stageValues = ['NEEDS_BOOKING', 'BOOKED', 'PRINTED', 'PACKED', 'LEFTOVER'] as const;
+const sortValues = [
+  'created_desc',
+  'created_asc',
+  'total_desc',
+  'total_asc',
+] as const satisfies readonly AdminOrderSort[];
 
 const filterSchema = z.object({
   status: z.enum(statusValues as [OrderStatus, ...OrderStatus[]]).optional(),
+  payment: z.enum(paymentValues as [PaymentStatus, ...PaymentStatus[]]).optional(),
   q: z.string().trim().max(120).optional(),
   stage: z.enum(stageValues).optional(),
+  sort: z.enum(sortValues).optional(),
 });
 
-type Props = { searchParams: Promise<{ status?: string; q?: string; stage?: string }> };
+type ListQuery = {
+  status?: OrderStatus;
+  payment?: PaymentStatus;
+  q?: string;
+  stage?: (typeof stageValues)[number];
+  sort?: AdminOrderSort;
+};
 
-function statusHref(status?: OrderStatus, q?: string, stage?: string) {
+type Props = {
+  searchParams: Promise<{
+    status?: string;
+    q?: string;
+    stage?: string;
+    payment?: string;
+    sort?: string;
+    page?: string;
+  }>;
+};
+
+function ordersHref(opts: ListQuery) {
   const params = new URLSearchParams();
-  if (stage) {
-    params.set('stage', stage);
-  } else if (status) {
-    params.set('status', status);
-  }
-  if (q) params.set('q', q);
+  if (opts.stage) params.set('stage', opts.stage);
+  else if (opts.status) params.set('status', opts.status);
+  if (opts.q) params.set('q', opts.q);
+  if (opts.payment) params.set('payment', opts.payment);
+  if (opts.sort) params.set('sort', opts.sort);
   const qs = params.toString();
   return qs ? `/admin/orders?${qs}` : '/admin/orders';
 }
 
 export default async function AdminOrdersPage({ searchParams }: Props) {
   const raw = await searchParams;
-  const { status, q, stage } = filterSchema.parse({
+  const parsed = filterSchema.safeParse({
     status: raw.status,
     q: raw.q,
     stage: raw.stage,
+    payment: raw.payment,
+    sort: raw.sort,
   });
+  const { status, q, stage, payment, sort } = parsed.success ? parsed.data : {};
+  const page = Math.max(1, Number(raw.page) || 1);
+
+  const baseQuery: ListQuery = { q, payment, sort };
 
   const [[items, total], stageCounts] = await Promise.all([
-    adminOrdersRepo.list({ status, q, stage, take: 100 }),
+    adminOrdersRepo.list({
+      status,
+      q,
+      stage,
+      paymentStatus: payment,
+      sort,
+      skip: (page - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
+    }),
     adminOrdersRepo.fulfillmentStageCounts(),
   ]);
 
@@ -119,7 +160,7 @@ export default async function AdminOrdersPage({ searchParams }: Props) {
 
       <div className="flex flex-wrap gap-2">
         <Button asChild size="sm" variant={!status && !stage ? 'primary' : 'outline'}>
-          <Link href={statusHref(undefined, q)}>All</Link>
+          <Link href={ordersHref(baseQuery)}>All</Link>
         </Button>
         {statusValues.map((s) => (
           <Button
@@ -128,7 +169,7 @@ export default async function AdminOrdersPage({ searchParams }: Props) {
             size="sm"
             variant={status === s && !stage ? 'primary' : 'outline'}
           >
-            <Link href={statusHref(s, q)}>{s}</Link>
+            <Link href={ordersHref({ ...baseQuery, status: s })}>{s}</Link>
           </Button>
         ))}
       </div>
@@ -149,7 +190,7 @@ export default async function AdminOrdersPage({ searchParams }: Props) {
               ] as const
             ).map(([key, label, count]) => (
               <Button key={key} asChild size="sm" variant={stage === key ? 'primary' : 'outline'}>
-                <Link href={statusHref(undefined, q, key)}>
+                <Link href={ordersHref({ ...baseQuery, stage: key })}>
                   {label}
                   <span className="ml-1.5 tabular-nums opacity-70">{count}</span>
                 </Link>
@@ -169,6 +210,21 @@ export default async function AdminOrdersPage({ searchParams }: Props) {
           <OrdersTable rows={rows} />
         </CardContent>
       </Card>
+
+      <AdminListPagination
+        page={page}
+        pageSize={PAGE_SIZE}
+        total={total}
+        basePath="/admin/orders"
+        emptyLabel="No orders"
+        params={{
+          status: stage ? undefined : status,
+          stage,
+          q,
+          payment,
+          sort,
+        }}
+      />
     </div>
   );
 }

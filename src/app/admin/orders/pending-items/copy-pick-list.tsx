@@ -14,7 +14,6 @@ const THUMB_PX = 120;
 export type PickListLine = {
   productName: string;
   variantName: string | null;
-  sku: string | null;
   size: string | null;
   shade: string | null;
   fragrance: string | null;
@@ -34,7 +33,7 @@ export function lineDisplayName(line: PickListLine): string {
 
   const name = details ? `${line.productName} (${details})` : line.productName;
   // Avoid tabs/newlines so TSV columns stay aligned when pasting into Sheets.
-  return (line.sku ? `${name} [${line.sku}]` : name).replace(/[\t\n\r]+/g, ' ').trim();
+  return name.replace(/[\t\n\r]+/g, ' ').trim();
 }
 
 /** Public thumbnail URL Sheets/Excel can fetch for =IMAGE(). */
@@ -106,7 +105,7 @@ async function fetchThumbBytes(src: string): Promise<ArrayBuffer | null> {
 async function buildPickListWorkbook(lines: ReadonlyArray<PickListLine>) {
   const ExcelJS = (await import('exceljs')).default;
   const workbook = new ExcelJS.Workbook();
-  workbook.creator = 'Kitchenly';
+  workbook.creator = 'Munasib';
   const sheet = workbook.addWorksheet('Pick list', {
     properties: { defaultRowHeight: THUMB_PX + 16 },
     views: [{ state: 'frozen', ySplit: 1 }],
@@ -161,10 +160,13 @@ function downloadBlob(filename: string, blob: Blob) {
 export function CopyPickListButton({
   lines,
   statusLabel,
+  compact = false,
 }: {
   lines: PickListLine[];
   statusLabel: string;
   orderCount?: number;
+  /** Smaller control for per-order cards. */
+  compact?: boolean;
 }) {
   const [pendingCopy, startCopy] = useTransition();
   const [pendingDownload, startDownload] = useTransition();
@@ -179,8 +181,10 @@ export function CopyPickListButton({
         await navigator.clipboard.writeText(plain);
         setCopied(true);
         toast.success(
-          `Copied 3 columns — click A1, Paste, then set row height to ${THUMB_PX + 10} for readable images`,
-          { duration: 6000 },
+          compact
+            ? 'Order pick list copied'
+            : `Copied 3 columns — click A1, Paste, then set row height to ${THUMB_PX + 10} for readable images`,
+          { duration: compact ? 2500 : 6000 },
         );
         window.setTimeout(() => setCopied(false), 2500);
       } catch {
@@ -195,7 +199,7 @@ export function CopyPickListButton({
         toast.message('Building Excel with images…');
         const buffer = await buildPickListWorkbook(lines);
         downloadBlob(
-          `kitchenly-pick-list-${statusLabel}-${new Date().toISOString().slice(0, 10)}.xlsx`,
+          `munasib-pick-list-${statusLabel}-${new Date().toISOString().slice(0, 10)}.xlsx`,
           new Blob([buffer], {
             type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
           }),
@@ -206,6 +210,22 @@ export function CopyPickListButton({
         toast.error('Could not build Excel — try Copy instead');
       }
     });
+  }
+
+  if (compact) {
+    return (
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        loading={pendingCopy}
+        disabled={lines.length === 0}
+        onClick={onCopy}
+      >
+        {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+        {copied ? 'Copied' : 'Copy'}
+      </Button>
+    );
   }
 
   return (

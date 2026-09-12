@@ -25,8 +25,8 @@ async function verify(token: string) {
   if (!secret) return null;
   try {
     const { payload } = await jwtVerify(token, secret, {
-      issuer: 'kitchenly',
-      audience: 'kitchenly:access',
+      issuer: 'munasib',
+      audience: 'munasib:access',
     });
     const parsed = claimsSchema.safeParse(payload);
     return parsed.success ? parsed.data : null;

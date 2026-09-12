@@ -17,8 +17,8 @@ describe('isSameSiteRequest', () => {
     expect(
       isSameSiteRequest(
         reqWith({
-          'x-forwarded-host': 'kitchenly-seven.vercel.app',
-          origin: 'https://kitchenly-seven.vercel.app',
+          'x-forwarded-host': 'munasib-seven.vercel.app',
+          origin: 'https://munasib-seven.vercel.app',
         }),
       ),
     ).toBe(true);
@@ -45,8 +45,8 @@ describe('isSameSiteRequest', () => {
     expect(
       isSameSiteRequest(
         reqWith({
-          'x-forwarded-host': 'kitchenly-seven.vercel.app, internal-proxy',
-          origin: 'https://kitchenly-seven.vercel.app',
+          'x-forwarded-host': 'munasib-seven.vercel.app, internal-proxy',
+          origin: 'https://munasib-seven.vercel.app',
         }),
       ),
     ).toBe(true);
@@ -56,7 +56,7 @@ describe('isSameSiteRequest', () => {
     expect(
       isSameSiteRequest(
         reqWith({
-          'x-forwarded-host': 'kitchenly-seven.vercel.app',
+          'x-forwarded-host': 'munasib-seven.vercel.app',
           origin: 'https://attacker.example',
         }),
       ),
@@ -67,15 +67,15 @@ describe('isSameSiteRequest', () => {
     expect(
       isSameSiteRequest(
         reqWith({
-          'x-forwarded-host': 'kitchenly-seven.vercel.app',
-          referer: 'https://kitchenly-seven.vercel.app/login',
+          'x-forwarded-host': 'munasib-seven.vercel.app',
+          referer: 'https://munasib-seven.vercel.app/login',
         }),
       ),
     ).toBe(true);
     expect(
       isSameSiteRequest(
         reqWith({
-          'x-forwarded-host': 'kitchenly-seven.vercel.app',
+          'x-forwarded-host': 'munasib-seven.vercel.app',
           referer: 'https://attacker.example/login',
         }),
       ),
@@ -83,14 +83,12 @@ describe('isSameSiteRequest', () => {
   });
 
   it('treats a request with neither Origin nor Referer as not same-site', () => {
-    expect(isSameSiteRequest(reqWith({ 'x-forwarded-host': 'kitchenly-seven.vercel.app' }))).toBe(
+    expect(isSameSiteRequest(reqWith({ 'x-forwarded-host': 'munasib-seven.vercel.app' }))).toBe(
       false,
     );
   });
 
   it('rejects when the served host cannot be determined', () => {
-    expect(isSameSiteRequest(reqWith({ origin: 'https://kitchenly-seven.vercel.app' }))).toBe(
-      false,
-    );
+    expect(isSameSiteRequest(reqWith({ origin: 'https://munasib-seven.vercel.app' }))).toBe(false);
   });
 });

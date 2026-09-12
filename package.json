@@ -1,8 +1,8 @@
 {
-  "name": "kitchenly-storefront",
+  "name": "munasib-storefront",
   "version": "0.1.0",
   "private": true,
-  "description": "Kitchenly — home, kitchen & everyday essentials e-commerce storefront (kitchenly.com.pk).",
+  "description": "Munasib — home, kitchen & everyday essentials e-commerce storefront (munasib.pk).",
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build --webpack",

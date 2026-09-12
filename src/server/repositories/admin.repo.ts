@@ -1,6 +1,6 @@
 import 'server-only';
 
-import { type OrderStatus, Prisma, type UserRole } from '@prisma/client';
+import { type OrderStatus, type PaymentStatus, Prisma, type UserRole } from '@prisma/client';
 
 import { productIntentScore, productIntentSignal, rate } from '@/lib/analytics/intent';
 import { prisma } from '@/lib/db';
@@ -94,6 +94,16 @@ function daysAgo(d: number) {
 
 // ---------- Products ----------
 
+export type AdminProductSort =
+  | 'created_desc'
+  | 'created_asc'
+  | 'name_asc'
+  | 'name_desc'
+  | 'price_asc'
+  | 'price_desc';
+
+export type AdminProductStockFilter = 'in' | 'out' | 'low';
+
 export const adminProductsRepo = {
   list(
     opts: {
@@ -101,9 +111,28 @@ export const adminProductsRepo = {
       take?: number;
       q?: string;
       categoryId?: string;
+      brandId?: string;
       status?: 'active' | 'hidden';
+      stock?: AdminProductStockFilter;
+      featured?: boolean;
+      sort?: AdminProductSort;
     } = {},
   ) {
+    const stockWhere: Prisma.ProductWhereInput | undefined = (() => {
+      if (opts.stock === 'in') return { variants: { some: { stockQuantity: { gt: 0 } } } };
+      if (opts.stock === 'out') return { variants: { none: { stockQuantity: { gt: 0 } } } };
+      if (opts.stock === 'low') {
+        // Every variant is ≤5, and at least one unit remains.
+        return {
+          AND: [
+            { variants: { some: { stockQuantity: { gt: 0 } } } },
+            { variants: { none: { stockQuantity: { gt: 5 } } } },
+          ],
+        };
+      }
+      return undefined;
+    })();
+
     const where: Prisma.ProductWhereInput = {
       ...(opts.q
         ? {
@@ -117,12 +146,34 @@ export const adminProductsRepo = {
           }
         : {}),
       ...(opts.categoryId ? { categoryId: opts.categoryId } : {}),
+      ...(opts.brandId ? { brandId: opts.brandId } : {}),
       ...(opts.status ? { isActive: opts.status === 'active' } : {}),
+      ...(opts.featured === true ? { isFeatured: true } : {}),
+      ...(stockWhere ?? {}),
     };
+
+    const orderBy: Prisma.ProductOrderByWithRelationInput = (() => {
+      switch (opts.sort) {
+        case 'created_asc':
+          return { createdAt: 'asc' };
+        case 'name_asc':
+          return { name: 'asc' };
+        case 'name_desc':
+          return { name: 'desc' };
+        case 'price_asc':
+          return { price: 'asc' };
+        case 'price_desc':
+          return { price: 'desc' };
+        case 'created_desc':
+        default:
+          return { createdAt: 'desc' };
+      }
+    })();
+
     return prisma.$transaction([
       prisma.product.findMany({
         where,
-        orderBy: { createdAt: 'desc' },
+        orderBy,
         skip: opts.skip ?? 0,
         take: opts.take ?? 50,
         // select, not include: the table renders six columns — pulling every
@@ -181,15 +232,19 @@ export const adminProductsRepo = {
 
 // ---------- Orders ----------
 
+export type AdminOrderSort = 'created_desc' | 'created_asc' | 'total_desc' | 'total_asc';
+
 export const adminOrdersRepo = {
   list(
     opts: {
       status?: OrderStatus;
+      paymentStatus?: PaymentStatus;
       q?: string;
       skip?: number;
       take?: number;
       /** Kitchen stage filter — only applied with status PROCESSING (or CONFIRMED for needs_booking). */
       stage?: 'NEEDS_BOOKING' | 'BOOKED' | 'PRINTED' | 'PACKED' | 'LEFTOVER';
+      sort?: AdminOrderSort;
     } = {},
   ) {
     const q = opts.q?.trim();
@@ -271,6 +326,7 @@ export const adminOrdersRepo = {
 
     const where: Prisma.OrderWhereInput = {
       ...(stageWhere ? stageWhere : opts.status ? { orderStatus: opts.status } : {}),
+      ...(opts.paymentStatus ? { paymentStatus: opts.paymentStatus } : {}),
       ...(q
         ? {
             OR: [
@@ -278,6 +334,7 @@ export const adminOrdersRepo = {
               { shippingFullName: { contains: q, mode: 'insensitive' } },
               { shippingEmail: { contains: q, mode: 'insensitive' } },
               { shippingPhone: { contains: q, mode: 'insensitive' } },
+              { shippingCity: { contains: q, mode: 'insensitive' } },
               { user: { email: { contains: q, mode: 'insensitive' } } },
               {
                 user: {
@@ -293,9 +350,21 @@ export const adminOrdersRepo = {
         : {}),
     };
 
-    // Leftover / stage views: oldest first so unfinished work surfaces.
-    const orderBy: Prisma.OrderOrderByWithRelationInput =
-      stage && stage !== 'NEEDS_BOOKING' ? { createdAt: 'asc' } : { createdAt: 'desc' };
+    // Explicit sort wins. Otherwise stage views (except needs-booking) are oldest-first.
+    const orderBy: Prisma.OrderOrderByWithRelationInput = (() => {
+      switch (opts.sort) {
+        case 'created_asc':
+          return { createdAt: 'asc' };
+        case 'total_desc':
+          return { totalAmount: 'desc' };
+        case 'total_asc':
+          return { totalAmount: 'asc' };
+        case 'created_desc':
+          return { createdAt: 'desc' };
+        default:
+          return stage && stage !== 'NEEDS_BOOKING' ? { createdAt: 'asc' } : { createdAt: 'desc' };
+      }
+    })();
 
     return prisma.$transaction([
       prisma.order.findMany({
@@ -402,8 +471,119 @@ export const adminOrdersRepo = {
    * Defaults to PENDING — the status every checkout starts in — so the page is
    * a pick list for orders that haven't moved into fulfilment yet.
    */
-  async pendingItems(statuses: OrderStatus[] = ['PENDING']) {
-    const statusList = statuses.length > 0 ? statuses : (['PENDING'] as OrderStatus[]);
+  /**
+   * Aggregated pick list + per-order breakdown for open kitchen work.
+   * Optional fulfillment `stage` narrows to booked / printed / etc.
+   */
+  async pendingItems(
+    opts: {
+      statuses?: OrderStatus[];
+      stage?: 'NEEDS_BOOKING' | 'BOOKED' | 'PRINTED' | 'PACKED' | 'LEFTOVER';
+      /** Inclusive order `createdAt` lower bound (store TZ day start). */
+      createdFrom?: Date;
+      /** Exclusive order `createdAt` upper bound. */
+      createdToExclusive?: Date;
+    } = {},
+  ) {
+    const statusList =
+      opts.statuses && opts.statuses.length > 0
+        ? opts.statuses
+        : (['PENDING', 'CONFIRMED', 'PROCESSING'] as OrderStatus[]);
+    const stage = opts.stage;
+
+    const todayKey = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Karachi',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date());
+    const leftoverBefore = new Date(`${todayKey}T00:00:00+05:00`);
+
+    const stageWhere: Prisma.OrderWhereInput | undefined = (() => {
+      if (!stage) return undefined;
+      if (stage === 'NEEDS_BOOKING') {
+        return {
+          orderStatus: { in: ['CONFIRMED', 'PROCESSING'] },
+          OR: [
+            { shipments: { none: {} } },
+            { shipments: { none: { trackingNumber: { not: null } } } },
+          ],
+        };
+      }
+      if (stage === 'BOOKED') {
+        return {
+          orderStatus: 'PROCESSING',
+          shipments: {
+            some: {
+              trackingNumber: { not: null },
+              labelPrintedAt: null,
+            },
+          },
+        };
+      }
+      if (stage === 'PRINTED') {
+        return {
+          orderStatus: 'PROCESSING',
+          shipments: {
+            some: {
+              trackingNumber: { not: null },
+              labelPrintedAt: { not: null },
+              packedAt: null,
+            },
+          },
+        };
+      }
+      if (stage === 'PACKED') {
+        return {
+          orderStatus: 'PROCESSING',
+          shipments: {
+            some: {
+              trackingNumber: { not: null },
+              packedAt: { not: null },
+            },
+          },
+        };
+      }
+      return {
+        orderStatus: 'PROCESSING',
+        shipments: {
+          some: {
+            trackingNumber: { not: null },
+            OR: [
+              { packedAt: { not: null, lt: leftoverBefore } },
+              { packedAt: null, labelPrintedAt: { not: null, lt: leftoverBefore } },
+              {
+                packedAt: null,
+                labelPrintedAt: null,
+                createdAt: { lt: leftoverBefore },
+              },
+            ],
+          },
+        },
+      };
+    })();
+
+    const orderWhere: Prisma.OrderWhereInput = {
+      ...(stageWhere ? stageWhere : { orderStatus: { in: statusList } }),
+      ...(opts.createdFrom || opts.createdToExclusive
+        ? {
+            createdAt: {
+              ...(opts.createdFrom ? { gte: opts.createdFrom } : {}),
+              ...(opts.createdToExclusive ? { lt: opts.createdToExclusive } : {}),
+            },
+          }
+        : {}),
+    };
+
+    const matchingOrders = await prisma.order.findMany({
+      where: orderWhere,
+      select: { id: true },
+    });
+    const orderIds = matchingOrders.map((o) => o.id);
+
+    if (orderIds.length === 0) {
+      return { aggregated: [], orders: [] };
+    }
 
     const [aggregated, orders] = await Promise.all([
       prisma.$queryRaw<
@@ -412,7 +592,6 @@ export const adminOrdersRepo = {
           variant_id: string | null;
           product_name: string;
           variant_name: string | null;
-          sku: string | null;
           size: string | null;
           shade: string | null;
           fragrance: string | null;
@@ -427,7 +606,6 @@ export const adminOrdersRepo = {
                oi."variant_id",
                oi."product_name",
                oi."variant_name",
-               pv."sku",
                pv."size",
                pv."shade",
                pv."fragrance",
@@ -449,16 +627,15 @@ export const adminOrdersRepo = {
                SUM(oi."quantity")::bigint AS total_quantity,
                COUNT(DISTINCT oi."order_id")::bigint AS order_count
         FROM "order_items" oi
-        JOIN "orders" o ON o."id" = oi."order_id"
         LEFT JOIN "product_variants" pv ON pv."id" = oi."variant_id"
         LEFT JOIN "products" p ON p."id" = oi."product_id"
-        WHERE o."order_status"::text = ANY(${statusList}::text[])
+        WHERE oi."order_id" = ANY(${orderIds}::uuid[])
         GROUP BY oi."product_id", oi."variant_id", oi."product_name", oi."variant_name",
-                 pv."sku", pv."size", pv."shade", pv."fragrance", p."slug"
+                 pv."size", pv."shade", pv."fragrance", p."slug"
         ORDER BY SUM(oi."quantity") DESC, oi."product_name" ASC`,
 
       prisma.order.findMany({
-        where: { orderStatus: { in: statusList } },
+        where: { id: { in: orderIds } },
         orderBy: { createdAt: 'asc' },
         select: {
           id: true,
@@ -469,6 +646,15 @@ export const adminOrdersRepo = {
           shippingFullName: true,
           shippingPhone: true,
           shippingCity: true,
+          shipments: {
+            orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+            take: 1,
+            select: {
+              trackingNumber: true,
+              labelPrintedAt: true,
+              packedAt: true,
+            },
+          },
           user: { select: { firstName: true, lastName: true, email: true } },
           items: {
             select: {
@@ -489,7 +675,6 @@ export const adminOrdersRepo = {
               },
               variant: {
                 select: {
-                  sku: true,
                   size: true,
                   shade: true,
                   fragrance: true,
@@ -513,7 +698,6 @@ export const adminOrdersRepo = {
         variantId: row.variant_id,
         productName: row.product_name,
         variantName: row.variant_name,
-        sku: row.sku,
         size: row.size,
         shade: row.shade,
         fragrance: row.fragrance,
@@ -524,6 +708,9 @@ export const adminOrdersRepo = {
       })),
       orders: orders.map((order) => ({
         ...order,
+        trackingNumber: order.shipments[0]?.trackingNumber ?? null,
+        labelPrintedAt: order.shipments[0]?.labelPrintedAt ?? null,
+        packedAt: order.shipments[0]?.packedAt ?? null,
         items: order.items.map((item) => ({
           id: item.id,
           productName: item.productName,
@@ -531,7 +718,6 @@ export const adminOrdersRepo = {
           quantity: item.quantity,
           productSlug: item.product?.slug ?? null,
           imageUrl: item.variant?.images[0]?.imageUrl ?? item.product?.images[0]?.imageUrl ?? null,
-          sku: item.variant?.sku ?? null,
           size: item.variant?.size ?? null,
           shade: item.variant?.shade ?? null,
           fragrance: item.variant?.fragrance ?? null,

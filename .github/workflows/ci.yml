@@ -37,7 +37,7 @@ jobs:
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: elviora_ci
+          POSTGRES_DB: munasib_ci
         ports:
           - 5432:5432
         options: >-
@@ -47,8 +47,8 @@ jobs:
           --health-retries 10
 
     env:
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/elviora_ci?schema=public
-      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/elviora_ci?schema=public
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/munasib_ci?schema=public
+      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/munasib_ci?schema=public
 
     steps:
       - name: Checkout

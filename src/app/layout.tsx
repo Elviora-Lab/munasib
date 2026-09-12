@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { Cormorant_Garamond, Inter } from 'next/font/google';
+import { Fredoka, Nunito } from 'next/font/google';
 
 import { siteConfig } from '@/config/site';
 
@@ -20,15 +20,23 @@ import { UtmCapture } from '@/components/analytics/utm-capture';
 
 import '@/styles/globals.css';
 
-const serif = Cormorant_Garamond({
+// Warm/friendly brand type: rounded display face + a rounded-terminal body
+// sans, replacing the old editorial Cormorant Garamond + Inter pairing. CSS
+// variable names (--font-serif/--font-sans) and the Tailwind utilities that
+// consume them (font-serif, font-sans, font-display) are kept as-is on
+// purpose — only the physical font loaded into each slot changes, so the
+// ~30+ files already using `font-serif`/`editorial-heading` don't need
+// touching to pick up the new look.
+const serif = Fredoka({
   subsets: ['latin'],
-  weight: ['300', '400', '500', '600'],
+  weight: ['400', '500', '600', '700'],
   variable: '--font-serif',
   display: 'swap',
 });
 
-const sans = Inter({
+const sans = Nunito({
   subsets: ['latin'],
+  weight: ['400', '500', '600', '700', '800'],
   variable: '--font-sans',
   display: 'swap',
 });
@@ -37,8 +45,8 @@ export const metadata: Metadata = defaultMetadata;
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#FBF7EF' },
-    { media: '(prefers-color-scheme: dark)', color: '#15171B' },
+    { media: '(prefers-color-scheme: light)', color: '#F8FCFA' },
+    { media: '(prefers-color-scheme: dark)', color: '#091320' },
   ],
   width: 'device-width',
   initialScale: 1,

@@ -58,7 +58,7 @@ type ProductCardProps = {
 };
 
 /**
- * Kitchenly product card — built to read as a shop, not a lookbook:
+ * Munasib product card — built to read as a shop, not a lookbook:
  * price is the loudest thing after the image (ember when discounted, with a
  * struck compare price and a "-XX%" pill), badges are capped at two so the
  * top-left never turns into a sticker wall, and the CTA sits in normal flow at

@@ -30,8 +30,8 @@ export default function ImportProductsPage() {
       <div className="rounded-md border border-border bg-muted/30 p-4 text-xs text-muted-foreground">
         <p className="mb-2 font-medium text-foreground">Simple CSV example</p>
         <pre className="overflow-x-auto">{`name,price,sku,category,brand,description,imageUrl,stock,isActive
-Adjustable Spice Rack,1499,KIT-SR-01,Storage,Kitchenly,Two-tier expandable rack,https://cdn.example.com/rack.jpg,100,true
-Microfibre Mop Set,999,KIT-MP-02,Cleaning,Kitchenly,Flat mop with washable pads,,50,true`}</pre>
+Adjustable Spice Rack,1499,KIT-SR-01,Storage,Munasib,Two-tier expandable rack,https://cdn.example.com/rack.jpg,100,true
+Microfibre Mop Set,999,KIT-MP-02,Cleaning,Munasib,Flat mop with washable pads,,50,true`}</pre>
       </div>
     </div>
   );

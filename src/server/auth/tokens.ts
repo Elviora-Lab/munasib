@@ -9,10 +9,10 @@ const ACCESS_TTL_SECONDS = 60 * 15; // 15 minutes
 const REFRESH_TTL_SECONDS = 60 * 60 * 24 * 30; // 30 days
 const RESET_TTL_SECONDS = 60 * 30; // 30 minutes
 
-const ISSUER = 'kitchenly';
-const ACCESS_AUDIENCE = 'kitchenly:access';
-const REFRESH_AUDIENCE = 'kitchenly:refresh';
-const RESET_AUDIENCE = 'kitchenly:pwreset';
+const ISSUER = 'munasib';
+const ACCESS_AUDIENCE = 'munasib:access';
+const REFRESH_AUDIENCE = 'munasib:refresh';
+const RESET_AUDIENCE = 'munasib:pwreset';
 
 // Validated (not just cast) after signature verification — a token signed with
 // the right key but carrying a malformed payload is rejected, never trusted.
@@ -104,7 +104,7 @@ export async function verifyPasswordResetToken(token: string): Promise<{ sub: st
   return { sub: String(payload.sub) };
 }
 
-const REVIEW_AUDIENCE = 'kitchenly:review';
+const REVIEW_AUDIENCE = 'munasib:review';
 const REVIEW_TTL_SECONDS = 60 * 60 * 24 * 90; // 90 days
 
 /**

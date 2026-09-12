@@ -11,9 +11,9 @@ export const alt = `${siteConfig.name} — ${siteConfig.positioning}`;
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
-const BG = '#0d2137';
-const GOLD = '#f07020';
-const CREAM = '#faf9f6';
+const BG = '#0A2E5C';
+const GREEN = '#00B86B';
+const MINT = '#F5FBF8';
 
 export default function OpengraphImage() {
   return new ImageResponse(
@@ -35,26 +35,26 @@ export default function OpengraphImage() {
           justifyContent: 'center',
           width: '92%',
           height: '86%',
-          border: `2px solid ${GOLD}`,
+          border: `2px solid ${GREEN}`,
         }}
       >
         <div
           style={{
             fontSize: 118,
             letterSpacing: 14,
-            color: GOLD,
+            color: GREEN,
             fontWeight: 600,
             display: 'flex',
           }}
         >
           {siteConfig.name.toUpperCase()}
         </div>
-        <div style={{ width: 80, height: 1, background: GOLD, margin: '28px 0' }} />
+        <div style={{ width: 80, height: 1, background: GREEN, margin: '28px 0' }} />
         <div
           style={{
             fontSize: 30,
             letterSpacing: 8,
-            color: CREAM,
+            color: MINT,
             display: 'flex',
           }}
         >

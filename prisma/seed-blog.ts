@@ -4,7 +4,7 @@
  *   PUBLISH=false npx tsx prisma/seed-blog.ts   # insert/refresh as DRAFTS
  *
  * Content is aligned to the storefront's SEO promise ("organization ideas,
- * kitchen tips, and product know-how from the Kitchenly team") and references
+ * kitchen tips, and product know-how from the Munasib team") and references
  * the store's real categories — Wardrobe & Organizers, Kitchen Accessories,
  * Home & Living, Home & Wall Decor, Mobile Accessories.
  *
@@ -42,9 +42,9 @@ const GUIDES: Guide[] = [
   {
     slug: 'small-closet-multi-hole-hangers',
     title: 'Small Closet, More Space: A Guide to Multi-Hole Magic Hangers',
-    seoTitle: 'Small Closet Organization: Multi-Hole Magic Hangers Guide | Kitchenly',
+    seoTitle: 'Small Closet Organization: Multi-Hole Magic Hangers Guide | Munasib',
     seoDescription:
-      'Reclaim wardrobe space with multi-hole folding hangers — hang more clothes in less space, sort by season, and keep knits crease-free. A practical Kitchenly home guide.',
+      'Reclaim wardrobe space with multi-hole folding hangers — hang more clothes in less space, sort by season, and keep knits crease-free. A practical Munasib home guide.',
     ageDays: 2,
     content: `A single rod fills up fast. Between shirts, trousers, and the "I'll wear it eventually" pile, most wardrobes run out of width long before they run out of clothes. The fix usually isn't a bigger closet — it's using the vertical space you already own.
 
@@ -65,9 +65,9 @@ Browse space-saving hangers and closet organizers in our Wardrobe & Organizers c
   {
     slug: 'kitchen-cabinet-organizing-guide',
     title: 'Kitchen Cabinet Chaos, Solved: A Room-by-Room Organizing Guide',
-    seoTitle: 'Kitchen Organization Guide: Declutter Cabinets & Drawers | Kitchenly',
+    seoTitle: 'Kitchen Organization Guide: Declutter Cabinets & Drawers | Munasib',
     seoDescription:
-      'A step-by-step Kitchenly guide to taming cabinets, drawers, and the space under your sink using baskets, cabinet organizers, and simple zoning that actually lasts.',
+      'A step-by-step Munasib guide to taming cabinets, drawers, and the space under your sink using baskets, cabinet organizers, and simple zoning that actually lasts.',
     ageDays: 9,
     content: `A well-run kitchen isn't the one with the most gadgets — it's the one where everything has a home you can reach without moving three other things first. Here's how to get there, zone by zone.
 
@@ -94,9 +94,9 @@ Explore baskets, cabinet organizers, and drawer dividers in our Kitchen Accessor
   {
     slug: 'faucet-aerator-guide',
     title: 'Faucet Aerators 101: The Tiny Nozzle That Cuts Your Water Bill',
-    seoTitle: 'What Is a Faucet Aerator? Save Water at Home | Kitchenly',
+    seoTitle: 'What Is a Faucet Aerator? Save Water at Home | Munasib',
     seoDescription:
-      'How a 360° rotating faucet aerator reduces splash and water use without losing pressure — plus how to fit one in two minutes. A Kitchenly product know-how guide.',
+      'How a 360° rotating faucet aerator reduces splash and water use without losing pressure — plus how to fit one in two minutes. A Munasib product know-how guide.',
     ageDays: 16,
     content: `That little screw-on tip at the end of your tap is called an aerator, and it does more than you'd think. If yours splashes, wastes water, or you've never given it a second look, this one's for you.
 
@@ -120,9 +120,9 @@ See our 360° rotating, splash-proof faucet aerators and other kitchen upgrades 
   {
     slug: 'cable-management-home-guide',
     title: 'From Cable Clutter to Calm: Organizing Your Tech Corners',
-    seoTitle: 'Cable Management at Home: Tidy Desks & Nightstands | Kitchenly',
+    seoTitle: 'Cable Management at Home: Tidy Desks & Nightstands | Munasib',
     seoDescription:
-      'Tame charging cables, earphones, and adapters with clips, zip cases, and wall-mounted holders. A Kitchenly guide to a calmer desk, nightstand, and entryway.',
+      'Tame charging cables, earphones, and adapters with clips, zip cases, and wall-mounted holders. A Munasib guide to a calmer desk, nightstand, and entryway.',
     ageDays: 23,
     content: `Every home has one: the tangle of chargers, earphones, and half-forgotten cables that migrates across the desk and nightstand. Sorting it out takes less effort than you'd expect, and the calm it buys is worth it.
 
@@ -146,9 +146,9 @@ Find cable organizers, zip cases, and wall-mounted phone holders across our Mobi
   {
     slug: 'vertical-wall-storage-guide',
     title: 'Wall Space Is Storage Space: Decorate and Organize Vertically',
-    seoTitle: 'Vertical Storage Ideas: Use Your Walls at Home | Kitchenly',
+    seoTitle: 'Vertical Storage Ideas: Use Your Walls at Home | Munasib',
     seoDescription:
-      'Free up counters and floors by going vertical — wall-mounted holders, hooks, and decor that doubles as storage. Organization ideas from the Kitchenly team.',
+      'Free up counters and floors by going vertical — wall-mounted holders, hooks, and decor that doubles as storage. Organization ideas from the Munasib team.',
     ageDays: 30,
     content: `When the floor and counters fill up, look up. The walls in most homes are the largest unused storage surface you own — and putting them to work makes small rooms feel bigger without moving a single piece of furniture.
 

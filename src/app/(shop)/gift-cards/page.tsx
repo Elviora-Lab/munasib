@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 export const metadata = buildMetadata({
   title: 'Gift Cards',
   description:
-    'Give the gift of choice with a Kitchenly gift card — useful for every kitchen, cupboard, and corner of the house.',
+    'Give the gift of choice with a Munasib gift card — useful for every kitchen, cupboard, and corner of the house.',
   path: '/gift-cards',
 });
 
@@ -19,7 +19,7 @@ export default function GiftCardsPage() {
         <SectionHeading
           as="h1"
           eyebrow="The perfect gift"
-          title="Kitchenly gift cards"
+          title="Munasib gift cards"
           description="When you are not sure which one they would pick, give the choice instead. Our gift cards never expire and work on anything in the store."
         />
 
@@ -35,8 +35,8 @@ export default function GiftCardsPage() {
 
         <div className="flex flex-col gap-4">
           <p className="text-pretty leading-relaxed text-muted-foreground">
-            Gift cards are coming soon to the Kitchenly storefront. In the meantime, our support
-            team can arrange one for you directly.
+            Gift cards are coming soon to the Munasib storefront. In the meantime, our support team
+            can arrange one for you directly.
           </p>
           <div className="flex flex-wrap gap-3">
             <Button asChild>

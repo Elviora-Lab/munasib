@@ -18,7 +18,7 @@ import { productsService } from '@/server/services/products.service';
 export const metadata = buildMetadata({
   title: 'Shop by Category — Home, Kitchen & Everyday Essentials',
   description:
-    'Browse every Kitchenly category — kitchen accessories, home and living, wardrobe organizers, beauty, gadgets, decor, baby and mobile accessories.',
+    'Browse every Munasib category — kitchen accessories, home and living, wardrobe organizers, beauty, gadgets, decor, baby and mobile accessories.',
   path: '/categories',
 });
 
@@ -65,7 +65,7 @@ export default async function CategoriesIndexPage() {
           as="h1"
           eyebrow="Everything we sell"
           title="Shop by category"
-          description="Kitchenly spans the whole house — cooking and storage, cleaning and utility, wardrobe and decor, beauty, baby and everyday gadgets. Pick a shelf to start on."
+          description="Munasib spans the whole house — cooking and storage, cleaning and utility, wardrobe and decor, beauty, baby and everyday gadgets. Pick a shelf to start on."
         />
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">

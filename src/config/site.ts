@@ -1,13 +1,12 @@
 import { publicEnv } from './env';
 
 /**
- * The canonical origin for this storefront — `https://kitchenly.com.pk` in
+ * The canonical origin for this storefront — `https://munasib.pk` in
  * production.
  *
  * EVERY absolute URL the site emits (canonicals, Open Graph, JSON-LD `url` and
  * `@id`, sitemap entries, robots host, product feeds) must be derived from this
- * one constant. There is a similarly-named, unrelated business on
- * `kitchenly.pk`; a single hardcoded absolute URL anywhere in the codebase is
+ * one constant. A single hardcoded absolute URL anywhere in the codebase is
  * how a domain mix-up gets shipped, so hardcoding is banned by convention and
  * `absoluteUrl()` in `@/lib/seo/metadata` is the only sanctioned way to build one.
  *
@@ -21,9 +20,9 @@ export const siteConfig = {
   /**
    * Disambiguating form. Used in `alternateName` and, sparingly, in page
    * titles where the market matters — never as a replacement for the visible
-   * brand, which stays "Kitchenly".
+   * brand, which stays "Munasib".
    */
-  alternateName: 'Kitchenly Pakistan',
+  alternateName: 'Munasib Pakistan',
   url: SITE_URL,
   /**
    * VISIBLE slogan — brand lockup, mobile drawer, footer copyright, shipping
@@ -49,12 +48,12 @@ export const siteConfig = {
    * (Pakistan), and states the commercial hook (cash on delivery).
    */
   description:
-    'Kitchenly is a Pakistani online store for practical home, kitchen and everyday essentials — organizers, gadgets, baby, beauty and mobile accessories, with cash on delivery nationwide.',
+    'Munasib is a Pakistani online store for practical home, kitchen and everyday essentials — organizers, gadgets, baby, beauty and mobile accessories, with cash on delivery nationwide.',
   /** Short form for meta descriptions that already carry page-specific copy. */
   shortDescription:
     'Practical home, kitchen and everyday essentials, delivered across Pakistan with cash on delivery.',
   meaning:
-    'Kitchenly — useful things for everyday life, chosen for build quality and priced for daily use.',
+    'Munasib — Urdu for "fitting, suitable" — useful things for everyday life, chosen for build quality and priced for daily use.',
   locale: 'en-PK',
   defaultCurrency: 'PKR',
   /**
@@ -63,27 +62,25 @@ export const siteConfig = {
    * belong here. Env-overridable so a profile can be added or corrected without
    * a code change, and any unset value is omitted rather than guessed.
    *
-   * The Facebook entry is a numeric `profile.php?id=` URL — valid, but a vanity
-   * URL (`/kitchenly.com.pk`) would be a stronger, more legible entity signal.
+   * No Munasib profiles are set yet — leave these env-driven and unset until
+   * real Instagram/Facebook accounts exist. Do NOT reuse the old Kitchenly
+   * handles as a fallback; they belong to a different brand.
    */
   social: {
-    instagram:
-      publicEnv.NEXT_PUBLIC_SOCIAL_INSTAGRAM ?? 'https://www.instagram.com/kitchenly.com.pk/',
-    facebook:
-      publicEnv.NEXT_PUBLIC_SOCIAL_FACEBOOK ??
-      'https://www.facebook.com/profile.php?id=61592530764589',
+    instagram: publicEnv.NEXT_PUBLIC_SOCIAL_INSTAGRAM,
+    facebook: publicEnv.NEXT_PUBLIC_SOCIAL_FACEBOOK,
     youtube: publicEnv.NEXT_PUBLIC_SOCIAL_YOUTUBE,
     tiktok: publicEnv.NEXT_PUBLIC_SOCIAL_TIKTOK,
   },
   contact: {
-    email: 'support@kitchenly.com.pk',
+    email: 'munasibpk12@gmail.com',
     phone: '+92 343 0803769',
   },
   /**
    * Where the business operates from — the address published in Organization
    * schema. City-level only: a street address in structured data is a claim
    * that has to hold up (Google cross-references it against Maps/GMB listings),
-   * and Kitchenly has no walk-in location to back one.
+   * and Munasib has no walk-in location to back one.
    *
    * Karachi/Sindh matches the dispatch origin the shipping rate card is built
    * around (`src/lib/shipping.ts`).
@@ -103,7 +100,7 @@ export const siteConfig = {
    * it must be the address the courier actually collects from.
    */
   shippingFrom: {
-    name: 'Kitchenly HQ',
+    name: 'Munasib HQ',
     addressLine1: '12 Khayaban-e-Iqbal, F-7',
     addressLine2: '',
     city: 'Islamabad',
@@ -132,7 +129,7 @@ export const siteConfig = {
     'home organization Pakistan',
     'everyday essentials Pakistan',
     'cash on delivery Pakistan',
-    'Kitchenly',
+    'Munasib',
   ],
 } as const;
 

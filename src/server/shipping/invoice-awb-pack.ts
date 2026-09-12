@@ -4,98 +4,24 @@ import { PDFDocument } from 'pdf-lib';
 
 import { prisma } from '@/lib/db';
 
+import { mergeAwbsTiled } from '@/server/shipping/awb-tile';
 import {
-  buildKitchenlyInvoicePdf,
+  buildInvoicePdf,
   type InvoiceOrder,
-} from '@/server/shipping/kitchenly-invoice-pdf';
+  prefetchInvoiceImages,
+} from '@/server/shipping/invoice-pdf';
+import {
+  imageCacheFromEmbeddedThumbs,
+  invoiceOrderFromSnapshot,
+  parseInvoicePrintSnapshot,
+  saveShipmentPrintSnapshot,
+  snapshotHasEmbeddedThumbs,
+} from '@/server/shipping/invoice-print-snapshot';
 import { getPostExAirwayBillsByTracking } from '@/server/shipping/postex';
+import { readPrintCache, writePrintCache } from '@/server/shipping/print-local-cache';
 
-/** How many Kitchenly invoices to render at once (each pulls product images). */
-const INVOICE_BUILD_CONCURRENCY = 4;
-
-/** Prefer JPEG/PNG — pdf-lib cannot embed WebP. */
-function pickPdfSafeImage(urls: Array<string | null | undefined>): string | null {
-  const clean = urls.map((u) => u?.trim()).filter((u): u is string => Boolean(u));
-  if (clean.length === 0) return null;
-  return clean.find((u) => !/\.webp(?:$|\?)/i.test(u)) ?? null;
-}
-
-async function loadOrdersForInvoicePack(orderIds: string[]) {
-  return prisma.order.findMany({
-    where: { id: { in: orderIds } },
-    include: {
-      items: {
-        orderBy: { id: 'asc' },
-        include: {
-          variant: {
-            select: {
-              images: {
-                orderBy: [{ isPrimary: 'desc' }, { sortOrder: 'asc' }],
-                take: 8,
-                select: { imageUrl: true },
-              },
-            },
-          },
-          product: {
-            select: {
-              images: {
-                where: { variantId: null },
-                orderBy: [{ isPrimary: 'desc' }, { sortOrder: 'asc' }],
-                take: 8,
-                select: { imageUrl: true },
-              },
-            },
-          },
-        },
-      },
-      shipments: {
-        where: { courierName: 'PostEx', trackingNumber: { not: null } },
-        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-        take: 1,
-        select: { trackingNumber: true },
-      },
-      payments: {
-        orderBy: { id: 'desc' },
-        take: 1,
-        select: { paymentMethod: true, paymentStatus: true },
-      },
-    },
-  });
-}
-
-function toInvoiceOrder(
-  order: Awaited<ReturnType<typeof loadOrdersForInvoicePack>>[number],
-): InvoiceOrder {
-  const payment = order.payments[0];
-  return {
-    orderNumber: order.orderNumber,
-    createdAt: order.createdAt,
-    trackingNumber: order.shipments[0]?.trackingNumber?.trim() ?? null,
-    paymentMethod: payment?.paymentMethod ?? null,
-    paymentStatus: payment?.paymentStatus ?? order.paymentStatus,
-    subtotal: Number(order.subtotal),
-    shippingFee: Number(order.shippingFee),
-    discountAmount: Number(order.discountAmount),
-    discountLabel: order.discountLabel,
-    totalAmount: Number(order.totalAmount),
-    currency: order.currency,
-    shippingFullName: order.shippingFullName,
-    shippingPhone: order.shippingPhone,
-    shippingCity: order.shippingCity,
-    shippingAddressLine1: order.shippingAddressLine1,
-    items: order.items.map((item) => ({
-      productName: item.productName,
-      variantName: item.variantName,
-      quantity: item.quantity,
-      unitPrice: Number(item.unitPrice),
-      totalPrice: Number(item.totalPrice),
-      imageUrl: pickPdfSafeImage([
-        ...(item.variant?.images.map((i) => i.imageUrl) ?? []),
-        ...(item.product?.images.map((i) => i.imageUrl) ?? []),
-      ]),
-    })),
-  };
-}
+/** How many Munasib invoices to render at once (images already prefetched). */
+const INVOICE_BUILD_CONCURRENCY = 8;
 
 async function mapInBatches<T, R>(
   items: T[],
@@ -120,12 +46,151 @@ export type InvoiceAwbPackResult = {
   skipped: number;
 };
 
+type PackWorkItem = {
+  orderId: string;
+  shipmentId: string;
+  tracking: string;
+  invoice: InvoiceOrder;
+  awbPdf: Uint8Array | null;
+};
+
 /**
- * One printable PDF: for each booked order, Kitchenly invoice (with photos)
+ * Resolve invoice payloads from `shipments.print_snapshot` (+ embedded thumbs / AWB).
+ * Older bookings are backfilled once (thumbs + AWB) on first print.
+ */
+async function loadPackWork(orderIds: string[]): Promise<{
+  work: PackWorkItem[];
+  skipped: number;
+  fromSnapshot: number;
+  backfilled: number;
+}> {
+  const shipments = await prisma.shipment.findMany({
+    where: {
+      orderId: { in: orderIds },
+      courierName: 'PostEx',
+      trackingNumber: { not: null },
+    },
+    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    select: {
+      id: true,
+      orderId: true,
+      trackingNumber: true,
+      printSnapshot: true,
+      awbPdf: true,
+    },
+  });
+
+  const byOrder = new Map<string, (typeof shipments)[number]>();
+  for (const s of shipments) {
+    if (!byOrder.has(s.orderId)) byOrder.set(s.orderId, s);
+  }
+
+  const work: PackWorkItem[] = [];
+  let skipped = 0;
+  let fromSnapshot = 0;
+  let backfilled = 0;
+
+  for (const orderId of orderIds) {
+    const shipment = byOrder.get(orderId);
+    const tracking = shipment?.trackingNumber?.trim();
+    if (!shipment || !tracking) {
+      skipped += 1;
+      continue;
+    }
+
+    let parsed = parseInvoicePrintSnapshot(shipment.printSnapshot);
+    let awbPdf = shipment.awbPdf ? new Uint8Array(shipment.awbPdf) : null;
+
+    if (!parsed || !snapshotHasEmbeddedThumbs(parsed)) {
+      parsed = await saveShipmentPrintSnapshot(shipment.id, orderId, tracking, {
+        fetchAwb: !awbPdf,
+      });
+      backfilled += 1;
+      const refreshed = await prisma.shipment.findUnique({
+        where: { id: shipment.id },
+        select: { awbPdf: true },
+      });
+      awbPdf = refreshed?.awbPdf ? new Uint8Array(refreshed.awbPdf) : awbPdf;
+    } else if (!awbPdf) {
+      try {
+        const map = await getPostExAirwayBillsByTracking([tracking]);
+        const bytes = map.get(tracking);
+        if (bytes) {
+          awbPdf = new Uint8Array(bytes);
+          await prisma.shipment.update({
+            where: { id: shipment.id },
+            data: { awbPdf: Buffer.from(bytes) },
+          });
+          backfilled += 1;
+        }
+      } catch {
+        // Print path will try again via loadAwbsForWork.
+      }
+    } else {
+      fromSnapshot += 1;
+    }
+
+    work.push({
+      orderId,
+      shipmentId: shipment.id,
+      tracking,
+      invoice: invoiceOrderFromSnapshot(parsed!),
+      awbPdf,
+    });
+  }
+
+  return { work, skipped, fromSnapshot, backfilled };
+}
+
+/** Prefer DB AWB → disk cache → PostEx API. */
+async function loadAwbsForWork(work: PackWorkItem[]): Promise<{
+  byTracking: Map<string, Uint8Array>;
+  dbHits: number;
+  fetched: number;
+}> {
+  const byTracking = new Map<string, Uint8Array>();
+  let dbHits = 0;
+  const missing: string[] = [];
+
+  for (const item of work) {
+    if (item.awbPdf && item.awbPdf.byteLength > 0) {
+      byTracking.set(item.tracking, item.awbPdf);
+      dbHits += 1;
+      continue;
+    }
+    const disk = await readPrintCache('awb', item.tracking);
+    if (disk) {
+      byTracking.set(item.tracking, disk);
+      continue;
+    }
+    missing.push(item.tracking);
+  }
+
+  let fetched = 0;
+  if (missing.length > 0) {
+    const map = await getPostExAirwayBillsByTracking(missing);
+    for (const [tracking, bytes] of map) {
+      byTracking.set(tracking, bytes);
+      void writePrintCache('awb', tracking, bytes);
+      fetched += 1;
+      const row = work.find((w) => w.tracking === tracking);
+      if (row) {
+        void prisma.shipment
+          .update({
+            where: { id: row.shipmentId },
+            data: { awbPdf: Buffer.from(bytes) },
+          })
+          .catch(() => undefined);
+      }
+    }
+  }
+
+  return { byTracking, dbHits, fetched };
+}
+
+/**
+ * One printable PDF: for each booked order, Munasib invoice (with photos)
  * then that order's PostEx airway bill — interleaved so packs stay matched.
- *
- * Invoices and PostEx AWBs are built in parallel (AWBs batched ≤10 per API call)
- * then interleaved in selection order.
  */
 export async function buildInvoiceAndPostExAwbPdf(
   orderIds: string[],
@@ -135,58 +200,175 @@ export async function buildInvoiceAndPostExAwbPdf(
     throw new Error('No order ids provided');
   }
 
-  const rows = await loadOrdersForInvoicePack(ids);
-  const byId = new Map(rows.map((o) => [o.id, o]));
-  const ordered = ids.map((id) => byId.get(id)).filter(Boolean) as typeof rows;
+  const t0 = Date.now();
 
-  const work: Array<{ order: (typeof rows)[number]; tracking: string }> = [];
-  let skipped = 0;
-  for (const order of ordered) {
-    const tracking = order.shipments[0]?.trackingNumber?.trim();
-    if (!tracking) {
-      skipped += 1;
-      continue;
+  const packKey = ids.slice().sort().join(',');
+  const cachedPack = await readPrintCache('pack', packKey);
+  if (cachedPack) {
+    console.info(`[invoice-awb] pack-cache HIT orders=${ids.length} total=${Date.now() - t0}ms`);
+    const shipments = await prisma.shipment.findMany({
+      where: {
+        orderId: { in: ids },
+        courierName: 'PostEx',
+        trackingNumber: { not: null },
+      },
+      select: { orderId: true, trackingNumber: true },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    });
+    const byOrder = new Map<string, string>();
+    for (const s of shipments) {
+      const tn = s.trackingNumber?.trim();
+      if (tn && !byOrder.has(s.orderId)) byOrder.set(s.orderId, tn);
     }
-    work.push({ order, tracking });
+    const trackingNumbers = ids.map((id) => byOrder.get(id)).filter(Boolean) as string[];
+    if (trackingNumbers.length > 0) {
+      return { pdf: cachedPack, trackingNumbers, skipped: ids.length - trackingNumbers.length };
+    }
   }
+
+  const { work, skipped, fromSnapshot, backfilled } = await loadPackWork(ids);
+  const tDb = Date.now();
 
   if (work.length === 0) {
     throw new Error('No PostEx tracking numbers on the selected orders — book first');
   }
 
   const trackingNumbers = work.map((w) => w.tracking);
+  const invoiceOrders = work.map((w) => w.invoice);
 
-  // Build Kitchenly invoices and fetch PostEx AWBs at the same time.
-  const [invoiceBytesList, awbByTracking] = await Promise.all([
-    mapInBatches(work, INVOICE_BUILD_CONCURRENCY, ({ order }) =>
-      buildKitchenlyInvoicePdf(toInvoiceOrder(order)),
-    ),
-    getPostExAirwayBillsByTracking(trackingNumbers),
+  // Prefer embedded thumbs from snapshot; only fetch URLs still missing.
+  const imageCache = imageCacheFromEmbeddedThumbs(invoiceOrders);
+  const missingUrls = invoiceOrders
+    .flatMap((o) => o.items.map((i) => i.imageUrl))
+    .filter((u): u is string => typeof u === 'string' && u.length > 0 && !imageCache.has(u));
+
+  const [fetchedImages, awbLoaded] = await Promise.all([
+    missingUrls.length > 0 ? prefetchInvoiceImages(missingUrls) : Promise.resolve(new Map()),
+    loadAwbsForWork(work),
   ]);
+  for (const [url, img] of fetchedImages) imageCache.set(url, img);
+  const tFetch = Date.now();
+
+  const invoiceBytesList = await mapInBatches(
+    invoiceOrders,
+    INVOICE_BUILD_CONCURRENCY,
+    (invoiceOrder) =>
+      buildInvoicePdf(invoiceOrder, {
+        includeImages: true,
+        imageCache,
+      }),
+  );
+  const tInvoices = Date.now();
 
   const merged = await PDFDocument.create();
 
   for (let i = 0; i < work.length; i++) {
-    const tracking = work[i]!.tracking;
-    const invoiceBytes = invoiceBytesList[i]!;
-    const invoiceDoc = await PDFDocument.load(invoiceBytes);
+    const invoiceDoc = await PDFDocument.load(invoiceBytesList[i]!);
     for (const page of await merged.copyPages(invoiceDoc, invoiceDoc.getPageIndices())) {
       merged.addPage(page);
     }
 
-    const awbBytes = awbByTracking.get(tracking);
-    if (!awbBytes) {
-      throw new Error(`PostEx AWB missing for tracking ${tracking}`);
-    }
+    const tracking = work[i]!.tracking;
+    const awbBytes = awbLoaded.byTracking.get(tracking);
+    if (!awbBytes) throw new Error(`PostEx AWB missing for tracking ${tracking}`);
     const awbDoc = await PDFDocument.load(awbBytes);
     for (const page of await merged.copyPages(awbDoc, awbDoc.getPageIndices())) {
       merged.addPage(page);
     }
   }
 
+  const pdf = await merged.save();
+  void writePrintCache('pack', packKey, pdf);
+
+  console.info(
+    `[invoice-awb] orders=${work.length} snapshot=${fromSnapshot} backfill=${backfilled} ` +
+      `awbDb=${awbLoaded.dbHits} awbFetch=${awbLoaded.fetched} ` +
+      `imgEmbedded=${imageCache.size - fetchedImages.size} imgFetch=${fetchedImages.size} ` +
+      `db=${tDb - t0}ms fetch=${tFetch - tDb}ms invoices=${tInvoices - tFetch}ms ` +
+      `merge=${Date.now() - tInvoices}ms total=${Date.now() - t0}ms bytes=${pdf.byteLength}`,
+  );
+
   return {
-    pdf: await merged.save(),
+    pdf,
     trackingNumbers,
     skipped,
   };
+}
+
+/** Munasib invoices only (no PostEx AWB) — one PDF, orders in selection order. */
+export async function buildInvoicesOnlyPdf(orderIds: string[]): Promise<InvoiceAwbPackResult> {
+  const ids = [...new Set(orderIds.filter(Boolean))];
+  if (ids.length === 0) throw new Error('No order ids provided');
+
+  const t0 = Date.now();
+  const { work, skipped, fromSnapshot, backfilled } = await loadPackWork(ids);
+  if (work.length === 0) {
+    throw new Error('No PostEx tracking numbers on the selected orders — book first');
+  }
+
+  const trackingNumbers = work.map((w) => w.tracking);
+  const invoiceOrders = work.map((w) => w.invoice);
+  const imageCache = imageCacheFromEmbeddedThumbs(invoiceOrders);
+  const missingUrls = invoiceOrders
+    .flatMap((o) => o.items.map((i) => i.imageUrl))
+    .filter((u): u is string => typeof u === 'string' && u.length > 0 && !imageCache.has(u));
+
+  const fetchedImages =
+    missingUrls.length > 0 ? await prefetchInvoiceImages(missingUrls) : new Map();
+  for (const [url, img] of fetchedImages) imageCache.set(url, img);
+
+  const invoiceBytesList = await mapInBatches(
+    invoiceOrders,
+    INVOICE_BUILD_CONCURRENCY,
+    (invoiceOrder) => buildInvoicePdf(invoiceOrder, { includeImages: true, imageCache }),
+  );
+
+  const merged = await PDFDocument.create();
+  for (const bytes of invoiceBytesList) {
+    const invoiceDoc = await PDFDocument.load(bytes!);
+    for (const page of await merged.copyPages(invoiceDoc, invoiceDoc.getPageIndices())) {
+      merged.addPage(page);
+    }
+  }
+
+  const pdf = await merged.save();
+  console.info(
+    `[invoice-only] orders=${work.length} snapshot=${fromSnapshot} backfill=${backfilled} ` +
+      `imgEmbedded=${imageCache.size - fetchedImages.size} imgFetch=${fetchedImages.size} ` +
+      `total=${Date.now() - t0}ms bytes=${pdf.byteLength}`,
+  );
+
+  return { pdf, trackingNumbers, skipped };
+}
+
+/** PostEx AWB labels only (prefers stored awb_pdf) — one PDF in selection order. */
+export async function buildAwbsOnlyPdf(orderIds: string[]): Promise<InvoiceAwbPackResult> {
+  const ids = [...new Set(orderIds.filter(Boolean))];
+  if (ids.length === 0) throw new Error('No order ids provided');
+
+  const t0 = Date.now();
+  const { work, skipped, fromSnapshot, backfilled } = await loadPackWork(ids);
+  if (work.length === 0) {
+    throw new Error('No PostEx tracking numbers on the selected orders — book first');
+  }
+
+  const trackingNumbers = work.map((w) => w.tracking);
+  const awbLoaded = await loadAwbsForWork(work);
+
+  const awbPages: Uint8Array[] = [];
+  for (const item of work) {
+    const awbBytes = awbLoaded.byTracking.get(item.tracking);
+    if (!awbBytes) throw new Error(`PostEx AWB missing for tracking ${item.tracking}`);
+    awbPages.push(awbBytes);
+  }
+
+  // PostEx returns one full A4 per label; crop + stack 3 per sheet.
+  const pdf = await mergeAwbsTiled(awbPages);
+  console.info(
+    `[awb-only] orders=${work.length} snapshot=${fromSnapshot} backfill=${backfilled} ` +
+      `awbDb=${awbLoaded.dbHits} awbFetch=${awbLoaded.fetched} tiled=3up ` +
+      `total=${Date.now() - t0}ms bytes=${pdf.byteLength}`,
+  );
+
+  return { pdf, trackingNumbers, skipped };
 }

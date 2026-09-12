@@ -146,7 +146,7 @@ export function ShippingLabel({ order }: { order: LabelOrder }) {
 
       <footer className="flex justify-between text-[9pt] uppercase tracking-[0.18em] text-black/55">
         <span>{siteConfig.tagline}</span>
-        <span>kitchenly.com.pk</span>
+        <span>{siteConfig.url.replace(/^https?:\/\//, '')}</span>
       </footer>
     </article>
   );

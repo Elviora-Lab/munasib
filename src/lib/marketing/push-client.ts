@@ -82,7 +82,7 @@ export async function startForegroundPushListener(): Promise<boolean> {
   foregroundListenerStarted = true;
   onMessage(messaging, (payload) => {
     const data = payload.data ?? {};
-    const title = payload.notification?.title ?? data.title ?? 'Kitchenly';
+    const title = payload.notification?.title ?? data.title ?? 'Munasib';
     const body = payload.notification?.body ?? data.body ?? undefined;
     const url = data.url ?? payload.fcmOptions?.link ?? '/';
     const icon = payload.notification?.icon ?? data.icon ?? '/icon.png';
@@ -94,7 +94,7 @@ export async function startForegroundPushListener(): Promise<boolean> {
         icon,
         badge,
         data: { url },
-        tag: data.kind ? `kitchenly-${data.kind}` : undefined,
+        tag: data.kind ? `munasib-${data.kind}` : undefined,
       })
       .catch(() => undefined);
   });

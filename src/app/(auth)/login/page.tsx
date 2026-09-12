@@ -16,7 +16,7 @@ export default function LoginPage() {
     <div className="flex flex-col gap-8">
       <header className="flex flex-col gap-2">
         <span className="eyebrow">Welcome back</span>
-        <h1 className="editorial-heading text-display-md">Sign in to Kitchenly</h1>
+        <h1 className="editorial-heading text-display-md">Sign in to Munasib</h1>
       </header>
       <Suspense fallback={<div className="h-64" />}>
         <LoginForm />
@@ -26,7 +26,7 @@ export default function LoginPage() {
           Forgot your password?
         </Link>
         <p>
-          New to Kitchenly?{' '}
+          New to Munasib?{' '}
           <Link href="/register" className="text-foreground underline underline-offset-4">
             Create an account
           </Link>

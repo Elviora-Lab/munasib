@@ -26,8 +26,8 @@ import { reconcileStockLedger } from './stock-ledger';
 const prisma = new PrismaClient();
 
 const DEMO_CREDENTIALS = {
-  admin: { email: 'admin@elviora.com', password: 'Admin123!' },
-  customer: { email: 'demo@elviora.com', password: 'Demo123!' },
+  admin: { email: 'admin@munasib.pk', password: 'Admin123!' },
+  customer: { email: 'demo@munasib.pk', password: 'Demo123!' },
 };
 
 // ---------------------------------------------------------------
@@ -583,7 +583,7 @@ async function main() {
     update: { role: 'SUPER_ADMIN', passwordHash: adminHash, isVerified: true },
     create: {
       email: DEMO_CREDENTIALS.admin.email,
-      firstName: 'Elviora',
+      firstName: 'Munasib',
       lastName: 'Concierge',
       passwordHash: adminHash,
       role: 'SUPER_ADMIN',
@@ -594,7 +594,7 @@ async function main() {
     where: { email: DEMO_CREDENTIALS.admin.email },
     update: { passwordHash: adminHash, isActive: true },
     create: {
-      name: 'Elviora Concierge',
+      name: 'Munasib Concierge',
       email: DEMO_CREDENTIALS.admin.email,
       passwordHash: adminHash,
       role: 'SUPER_ADMIN',

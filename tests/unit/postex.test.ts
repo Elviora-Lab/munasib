@@ -27,7 +27,7 @@ describe('PostEx phone normalization', () => {
 describe('PostEx status mapping', () => {
   it('keeps pre-pickup statuses at label-created without marking shipped', () => {
     expect(isPostExPrePickupStatus("At Merchant's Warehouse")).toBe(true);
-    expect(isPostExPrePickupStatus('At Kitchenly Warehouse')).toBe(true);
+    expect(isPostExPrePickupStatus('At Munasib Warehouse')).toBe(true);
     expect(isPostExPrePickupStatus('Unbooked')).toBe(true);
     expect(isPostExPrePickupStatus('Booked')).toBe(true);
     expect(isPostExPrePickupStatus('At PostEx Warehouse')).toBe(false);
@@ -36,7 +36,7 @@ describe('PostEx status mapping', () => {
       shipment: ShipmentStatus.LABEL_CREATED,
       terminal: false,
     });
-    expect(mapPostExStatus('At Kitchenly Warehouse')).toEqual({
+    expect(mapPostExStatus('At Munasib Warehouse')).toEqual({
       shipment: ShipmentStatus.LABEL_CREATED,
       terminal: false,
     });
@@ -114,7 +114,7 @@ describe('PostEx status mapping', () => {
     expect(isPostExPostPickupStatus('Out For Delivery')).toBe(true);
     expect(isPostExPostPickupStatus('Attempt Made: Customer not available')).toBe(true);
     expect(isPostExPostPickupStatus("At Merchant's Warehouse")).toBe(false);
-    expect(isPostExPostPickupStatus('At Kitchenly Warehouse')).toBe(false);
+    expect(isPostExPostPickupStatus('At Munasib Warehouse')).toBe(false);
     expect(isPostExPostPickupStatus('Booked')).toBe(false);
   });
 

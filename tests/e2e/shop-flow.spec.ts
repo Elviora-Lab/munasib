@@ -4,7 +4,7 @@ import { sql } from './helpers';
 
 test.describe.configure({ mode: 'serial' });
 
-test('homepage renders the Kitchenly hero', async ({ page }) => {
+test('homepage renders the Munasib hero', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { level: 1 })).toContainText(
     'Everything your home runs on',

@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
 type CategoryOption = { id: string; name: string };
+type BrandOption = { id: string; name: string };
 
 const STATUS_OPTIONS = [
   { value: '', label: 'All' },
@@ -15,17 +16,45 @@ const STATUS_OPTIONS = [
   { value: 'hidden', label: 'Hidden' },
 ] as const;
 
-export function ProductsFilters({ categories }: { categories: CategoryOption[] }) {
+const STOCK_OPTIONS = [
+  { value: '', label: 'Any stock' },
+  { value: 'in', label: 'In stock' },
+  { value: 'low', label: 'Low (≤5)' },
+  { value: 'out', label: 'Out of stock' },
+] as const;
+
+const SORT_OPTIONS = [
+  { value: 'created_desc', label: 'Newest' },
+  { value: 'created_asc', label: 'Oldest' },
+  { value: 'name_asc', label: 'Name A–Z' },
+  { value: 'name_desc', label: 'Name Z–A' },
+  { value: 'price_asc', label: 'Price ↑' },
+  { value: 'price_desc', label: 'Price ↓' },
+] as const;
+
+const selectClassName =
+  'h-11 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring';
+
+export function ProductsFilters({
+  categories,
+  brands,
+}: {
+  categories: CategoryOption[];
+  brands: BrandOption[];
+}) {
   const router = useRouter();
   const search = useSearchParams();
   const [pending, start] = useTransition();
 
   const q = search.get('q') ?? '';
   const category = search.get('category') ?? '';
+  const brand = search.get('brand') ?? '';
   const status = search.get('status') ?? '';
+  const stock = search.get('stock') ?? '';
+  const featured = search.get('featured') === '1';
+  const sort = search.get('sort') ?? 'created_desc';
 
   const [term, setTerm] = useState(q);
-  // Keep the input in sync when the URL changes elsewhere (e.g. Clear all).
   useEffect(() => setTerm(q), [q]);
 
   const setParams = useCallback(
@@ -35,7 +64,9 @@ export function ProductsFilters({ categories }: { categories: CategoryOption[] }
         if (value) params.set(key, value);
         else params.delete(key);
       }
-      params.delete('page'); // any filter change returns to the first page
+      // Default sort stays out of the URL.
+      if (params.get('sort') === 'created_desc') params.delete('sort');
+      params.delete('page');
       start(() => {
         router.push(`?${params.toString()}`, { scroll: false });
       });
@@ -43,7 +74,6 @@ export function ProductsFilters({ categories }: { categories: CategoryOption[] }
     [router, search],
   );
 
-  // Debounce the free-text search so we don't navigate on every keystroke.
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onSearchChange = useCallback(
     (value: string) => {
@@ -55,7 +85,7 @@ export function ProductsFilters({ categories }: { categories: CategoryOption[] }
   );
   useEffect(() => () => void (debounceRef.current && clearTimeout(debounceRef.current)), []);
 
-  const hasFilters = Boolean(q || category || status);
+  const hasFilters = Boolean(q || category || brand || status || stock || featured);
 
   return (
     <div className="flex flex-col gap-3">
@@ -76,12 +106,54 @@ export function ProductsFilters({ categories }: { categories: CategoryOption[] }
           value={category}
           onChange={(e) => setParams({ category: e.target.value })}
           aria-label="Filter by category"
-          className="h-11 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          className={selectClassName}
         >
           <option value="">All categories</option>
           {categories.map((c) => (
             <option key={c.id} value={c.id}>
               {c.name}
+            </option>
+          ))}
+        </select>
+
+        {brands.length > 0 ? (
+          <select
+            value={brand}
+            onChange={(e) => setParams({ brand: e.target.value })}
+            aria-label="Filter by brand"
+            className={selectClassName}
+          >
+            <option value="">All brands</option>
+            {brands.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.name}
+              </option>
+            ))}
+          </select>
+        ) : null}
+
+        <select
+          value={stock}
+          onChange={(e) => setParams({ stock: e.target.value })}
+          aria-label="Filter by stock"
+          className={selectClassName}
+        >
+          {STOCK_OPTIONS.map((o) => (
+            <option key={o.value || 'any'} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={sort}
+          onChange={(e) => setParams({ sort: e.target.value })}
+          aria-label="Sort products"
+          className={selectClassName}
+        >
+          {SORT_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>
+              Sort: {o.label}
             </option>
           ))}
         </select>
@@ -97,6 +169,13 @@ export function ProductsFilters({ categories }: { categories: CategoryOption[] }
               {o.label}
             </Button>
           ))}
+          <Button
+            size="sm"
+            variant={featured ? 'primary' : 'outline'}
+            onClick={() => setParams({ featured: featured ? '' : '1' })}
+          >
+            Featured
+          </Button>
         </div>
 
         {hasFilters ? (
@@ -105,7 +184,15 @@ export function ProductsFilters({ categories }: { categories: CategoryOption[] }
             variant="ghost"
             onClick={() => {
               setTerm('');
-              setParams({ q: '', category: '', status: '' });
+              setParams({
+                q: '',
+                category: '',
+                brand: '',
+                status: '',
+                stock: '',
+                featured: '',
+                sort: '',
+              });
             }}
           >
             <X className="size-4" /> Clear

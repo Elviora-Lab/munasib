@@ -11,7 +11,7 @@ export function getStripe(): Stripe {
   if (!serverEnv.STRIPE_SECRET_KEY) throw new Error('Stripe is not configured');
   cached = new Stripe(serverEnv.STRIPE_SECRET_KEY, {
     apiVersion: '2025-02-24.acacia',
-    appInfo: { name: 'Kitchenly', version: '0.1.0' },
+    appInfo: { name: 'Munasib', version: '0.1.0' },
     typescript: true,
   });
   return cached;

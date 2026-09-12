@@ -11,9 +11,10 @@ import { normalizeProductCopy } from './product-copy';
  * card goes through here. Two reasons it is centralised rather than written
  * per-page:
  *
- *  1. Domain safety. A near-identical business runs on `kitchenly.pk`. Every
- *     absolute URL is built from {@link SITE_URL} via {@link absoluteUrl}, so
- *     no page can accidentally canonicalise to the wrong host.
+ *  1. Domain safety. Every absolute URL is built from {@link SITE_URL} via
+ *     {@link absoluteUrl}, so no page can accidentally canonicalise to the
+ *     wrong host (e.g. a stray hardcoded domain, or a similarly-named
+ *     business's URL).
  *  2. Scale. The catalog is ~580 products and growing; per-page metadata does
  *     not survive that. The `generate*Metadata` helpers below take a DB row and
  *     return a complete, unique, length-budgeted `Metadata` object.
@@ -213,7 +214,7 @@ export type ProductMetadataInput = {
 /**
  * Product title.
  *
- * `"<name> Price in Pakistan | Kitchenly"` is only used when the name is short
+ * `"<name> Price in Pakistan | Munasib"` is only used when the name is short
  * enough that the composed title still fits the SERP budget. That length test
  * is a deliberate proxy for intent, not a formatting convenience: the short
  * names in this catalog are the generic product types people actually

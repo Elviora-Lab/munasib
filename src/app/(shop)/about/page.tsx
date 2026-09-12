@@ -9,10 +9,10 @@ import { buildMetadata } from '@/lib/seo/metadata';
 import { Section, SectionHeading } from '@/design-system/primitives/section';
 
 const DESCRIPTION =
-  'Kitchenly is a Pakistan-based online store for practical home, kitchen and everyday essentials — who we are, what we stock, and how ordering works.';
+  'Munasib is a Pakistan-based online store for practical home, kitchen and everyday essentials — who we are, what we stock, and how ordering works.';
 
 export const metadata = buildMetadata({
-  title: 'About Kitchenly — Home & Everyday Essentials in Pakistan',
+  title: 'About Munasib — Home & Everyday Essentials in Pakistan',
   description: DESCRIPTION,
   path: '/about',
 });
@@ -28,7 +28,7 @@ export const metadata = buildMetadata({
  * direct contradiction of every other signal on the site.
  *
  * Two things it must do, given a similarly-named business on another domain:
- * state plainly WHICH Kitchenly this is (the .com.pk store, this catalog, this
+ * state plainly WHICH Munasib this is (the .com.pk store, this catalog, this
  * market), and stay honest about breadth so the copy does not have to be
  * rewritten each time a category is added.
  */
@@ -50,7 +50,7 @@ export default function AboutPage() {
           as="h1"
           eyebrow="Our story"
           title="Useful things, honestly priced."
-          description="Kitchenly is a Pakistani online store for the practical products a household actually runs on — from the kitchen drawer to the wardrobe rail to the wall by the front door."
+          description="Munasib is a Pakistani online store for the practical products a household actually runs on — from the kitchen drawer to the wardrobe rail to the wall by the front door."
         />
 
         <div className="flex flex-col gap-6 text-pretty leading-relaxed text-muted-foreground">
@@ -62,7 +62,7 @@ export default function AboutPage() {
             with no photos, no descriptions, and no one to answer for them afterwards.
           </p>
           <p>
-            So Kitchenly is built the other way round. We buy in small batches, check items before
+            So Munasib is built the other way round. We buy in small batches, check items before
             they are listed, photograph what actually arrives, and write descriptions we would be
             comfortable reading back to a customer. Nothing goes on the shelf on the strength of a
             supplier catalogue alone.
@@ -77,7 +77,7 @@ export default function AboutPage() {
         <div className="flex flex-col gap-4">
           <h2 className="editorial-heading text-display-sm">What we sell</h2>
           <p className="text-pretty leading-relaxed text-muted-foreground">
-            The name says kitchen, and kitchen is our largest shelf — but Kitchenly is a
+            The name says kitchen, and kitchen is our largest shelf — but Munasib is a
             general-purpose everyday-essentials store, and always has been. The catalog spans:
           </p>
           <ul className="flex flex-col gap-3 text-pretty leading-relaxed text-muted-foreground">
@@ -144,12 +144,15 @@ export default function AboutPage() {
         </div>
 
         <div className="flex flex-col gap-4">
-          <h2 className="editorial-heading text-display-sm">Finding the right Kitchenly</h2>
+          <h2 className="editorial-heading text-display-sm">Finding the right Munasib</h2>
           <p className="text-pretty leading-relaxed text-muted-foreground">
-            Kitchenly trades online only, at{' '}
-            <span className="font-medium text-foreground">kitchenly.com.pk</span>. Our official
-            channels are this website, the email and phone number in the footer, and the social
-            accounts linked from it. If you are unsure whether an account or listing is ours, email{' '}
+            Munasib trades online only, at{' '}
+            <span className="font-medium text-foreground">
+              {siteConfig.url.replace(/^https?:\/\//, '')}
+            </span>
+            . Our official channels are this website, the email and phone number in the footer, and
+            the social accounts linked from it. If you are unsure whether an account or listing is
+            ours, email{' '}
             <a
               className="font-medium text-foreground underline underline-offset-4"
               href={`mailto:${siteConfig.contact.email}`}

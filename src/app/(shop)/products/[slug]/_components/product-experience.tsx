@@ -245,7 +245,7 @@ export function ProductExperience({
                 aria-hidden
                 className="absolute inset-0 grid place-items-center font-serif text-3xl font-light uppercase tracking-[0.22em] text-brand-slate/30"
               >
-                Kitchenly
+                Munasib
               </span>
             )}
 

@@ -21,7 +21,7 @@ export default function AccountOverviewPage() {
     <div className="flex flex-col gap-8">
       <header className="flex flex-col gap-2">
         <span className="eyebrow">Welcome back</span>
-        <h1 className="editorial-heading text-display-md">Your Kitchenly</h1>
+        <h1 className="editorial-heading text-display-md">Your Munasib</h1>
       </header>
       <div className="grid gap-4 md:grid-cols-3">
         {tiles.map((t) => (

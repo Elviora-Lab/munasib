@@ -8,7 +8,7 @@ import { SearchClient } from './search-client';
 
 export const metadata = buildMetadata({
   title: 'Search',
-  description: 'Search Kitchenly — kitchen gadgets, storage, cleaning, and household essentials.',
+  description: 'Search Munasib — kitchen gadgets, storage, cleaning, and household essentials.',
   path: '/search',
   noIndex: true,
 });

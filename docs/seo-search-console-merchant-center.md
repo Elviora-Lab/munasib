@@ -16,7 +16,7 @@ errors. Free.
 2. Choose **Domain** (covers http/https + all subdomains) — recommended — and
    add the **DNS TXT record** it gives you at your domain registrar/DNS.
    - If you can't edit DNS, use the **URL-prefix** property with
-     `https://kitchenly.com.pk` and verify via the **HTML tag** method (see the
+     `https://munasib.pk` and verify via the **HTML tag** method (see the
      note below on adding it in code) or the Vercel domain integration.
 3. Once verified, open **Sitemaps** → submit `sitemap.xml`.
 4. Use **URL Inspection** on your homepage and a product page → **Request
@@ -60,7 +60,7 @@ catalog. Use the **Google** one here — it is already in Google's RSS format:
 4. **Products → Feeds → Add a primary feed**:
    - Country: Pakistan · Language: English
    - Method: **Scheduled fetch**
-   - Feed URL: `https://kitchenly.com.pk/feed/google-merchant.xml`
+   - Feed URL: `https://munasib.pk/feed/google-merchant.xml`
    - Set a daily fetch time.
 5. Fill in the **required shopping policies** (return policy, shipping) under
    Merchant Center settings — Google needs these before listings go live.
@@ -77,17 +77,17 @@ declares `identifier_exists: no` so Google accepts them.
 > **Before submitting:** every product's `g:brand` currently reads
 > **"Elviora Home"** — the single brand row all 579 products point at, carried
 > over from the fork. Merchant Center matches and groups products by brand, so
-> rename that brand row to "Kitchenly" (Admin → Brands) before the first fetch.
+> rename that brand row to "Munasib" (Admin → Brands) before the first fetch.
 
 > **Also:** `link` and `g:image_link` are built from `NEXT_PUBLIC_SITE_URL`. If
-> that is not set to `https://kitchenly.com.pk` in Vercel, every feed URL points
+> that is not set to `https://munasib.pk` in Vercel, every feed URL points
 > somewhere useless and Merchant Center will reject the whole feed.
 
 ---
 
 ## 4. Google Business Profile (local SEO, Pakistan)
 
-If Kitchenly has a physical presence or serves a local area, create a **Google
+If Munasib has a physical presence or serves a local area, create a **Google
 Business Profile** at <https://business.google.com>. It powers the Maps/local
 pack and a branded knowledge panel — high intent, low effort. Use the same
 business name, the Islamabad address from `siteConfig.shippingFrom` (if public),
@@ -105,5 +105,5 @@ and link back to the site.
   Twitter/X card validator — the branded Open Graph card (or the product photo
   on product pages) should render. Use "Scrape Again" after deploys to refresh
   Facebook's cache.
-- **Sitemap health:** `https://kitchenly.com.pk/sitemap.xml` should list your
+- **Sitemap health:** `https://munasib.pk/sitemap.xml` should list your
   products, categories, brands and posts.

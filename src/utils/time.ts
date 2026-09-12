@@ -129,3 +129,28 @@ export function parseStoreDateTimeInput(value: string): Date {
     second: Number(match[6] ?? 0),
   });
 }
+
+/** Calendar date in store TZ as YYYY-MM-DD. */
+export function formatStoreDateKey(now = new Date()): string {
+  const parts = zonedParts(now);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${parts.year}-${pad(parts.month)}-${pad(parts.day)}`;
+}
+
+/**
+ * Inclusive `from`/`to` calendar days (YYYY-MM-DD, Asia/Karachi) → Prisma
+ * `createdAt` bounds. `to` is exclusive end-of-day via next midnight.
+ */
+export function storeDateRangeFilter(
+  from?: string,
+  to?: string,
+): { gte?: Date; lt?: Date } | undefined {
+  const dayRe = /^\d{4}-\d{2}-\d{2}$/;
+  const gte = from && dayRe.test(from) ? parseStoreDateTimeInput(`${from}T00:00:00`) : undefined;
+  const lt =
+    to && dayRe.test(to)
+      ? new Date(parseStoreDateTimeInput(`${to}T00:00:00`).getTime() + DAY_MS)
+      : undefined;
+  if (!gte && !lt) return undefined;
+  return { ...(gte ? { gte } : {}), ...(lt ? { lt } : {}) };
+}

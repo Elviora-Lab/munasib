@@ -1,6 +1,6 @@
-# Analytics API keys (Kitchenly migration)
+# Analytics API keys (Munasib migration)
 
-Which third-party keys this app needs, which are Kitchenly's to obtain, and why
+Which third-party keys this app needs, which are Munasib's to obtain, and why
 none of them are needed for local development.
 
 This is the umbrella doc. Per-service detail lives in
@@ -17,21 +17,21 @@ This is the umbrella doc. Per-service detail lives in
 - Two Elviora IDs used to be hardcoded as schema defaults. They have been
   removed — see [Fixed: hardcoded Elviora IDs](#fixed-hardcoded-elviora-ids).
 
-## Keys to obtain for Kitchenly
+## Keys to obtain for Munasib
 
 Set these in the production environment (Vercel project settings) only.
 
-### Meta — Business Manager → Kitchenly assets
+### Meta — Business Manager → Munasib assets
 
 | Variable                    | Where to get it                                   | Required for                |
 | --------------------------- | ------------------------------------------------- | --------------------------- |
-| `NEXT_PUBLIC_FB_PIXEL_ID`   | Events Manager → new Kitchenly pixel              | Browser pixel               |
+| `NEXT_PUBLIC_FB_PIXEL_ID`   | Events Manager → new Munasib pixel                | Browser pixel               |
 | `META_CAPI_ACCESS_TOKEN`    | Events Manager → Settings → Conversions API token | Server-side events          |
 | `META_CAPI_TEST_EVENT_CODE` | Events Manager → Test events tab                  | Optional, temporary         |
 | `META_ADS_ACCESS_TOKEN`     | System User token with `ads_read`                 | `/admin/ads` dashboard only |
 | `META_ADS_ACCOUNT_ID`       | Ad account id (digits, or with `act_` prefix)     | `/admin/ads` dashboard only |
 
-### Google Analytics 4 — new GA4 property for Kitchenly
+### Google Analytics 4 — new GA4 property for Munasib
 
 | Variable             | Where to get it                                               | Required for                 |
 | -------------------- | ------------------------------------------------------------- | ---------------------------- |
@@ -43,9 +43,9 @@ Set these in the production environment (Vercel project settings) only.
 
 ### Microsoft Clarity
 
-| Variable                 | Where to get it               | Required for              |
-| ------------------------ | ----------------------------- | ------------------------- |
-| `NEXT_PUBLIC_CLARITY_ID` | New Kitchenly Clarity project | Session replay + heatmaps |
+| Variable                 | Where to get it             | Required for              |
+| ------------------------ | --------------------------- | ------------------------- |
+| `NEXT_PUBLIC_CLARITY_ID` | New Munasib Clarity project | Session replay + heatmaps |
 
 > This var was never present in any `.env` file — which is exactly why the
 > hardcoded default silently governed it.
@@ -99,7 +99,7 @@ now means _no tracking_ rather than _Elviora's tracking_. The existing guards
 (`Boolean(FB_PIXEL_ID)` and `!id`) already handled `undefined`, so no call sites
 changed; `tsc --noEmit` passes.
 
-**Consequence:** production will now send nothing until the Kitchenly IDs above
+**Consequence:** production will now send nothing until the Munasib IDs above
 are actually set. That is intentional — silence beats cross-store contamination.
 
 ## Known gap (not fixed here)

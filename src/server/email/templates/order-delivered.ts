@@ -2,7 +2,7 @@ import 'server-only';
 
 import { siteConfig } from '@/config/site';
 
-import { emailLayout, emailParagraph, escapeHtml } from './layout';
+import { C, emailLayout, emailParagraph, escapeHtml } from './layout';
 
 export function orderDeliveredEmail({
   orderNumber,
@@ -27,7 +27,7 @@ export function orderDeliveredEmail({
   if (reviewUrl) {
     bodyParts.push(
       emailParagraph(
-        `Enjoyed your purchase? <a href="${reviewUrl}" style="color:#12355B;font-weight:600;text-decoration:none;">Leave a quick review</a> — it helps other shoppers and takes less than a minute.`,
+        `Enjoyed your purchase? <a href="${reviewUrl}" style="color:${C.navy};font-weight:600;text-decoration:none;">Leave a quick review</a> — it helps other shoppers and takes less than a minute.`,
       ),
     );
   }

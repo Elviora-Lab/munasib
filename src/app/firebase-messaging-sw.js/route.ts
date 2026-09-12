@@ -39,7 +39,7 @@ const messaging = firebase.messaging();
 messaging.onBackgroundMessage((payload) => {
   const notification = payload.notification || {};
   const data = payload.data || {};
-  const title = notification.title || data.title || 'Kitchenly';
+  const title = notification.title || data.title || 'Munasib';
   const options = {
     body: notification.body || data.body || 'Your cart and offers are waiting.',
     icon: data.icon || '/icon.png',

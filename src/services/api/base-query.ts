@@ -47,7 +47,7 @@ const rawBaseQuery = fetchBaseQuery({
   credentials: 'include',
   prepareHeaders: (headers) => {
     if (!headers.has('accept')) headers.set('accept', 'application/json');
-    headers.set('x-client', 'kitchenly-web');
+    headers.set('x-client', 'munasib-web');
     return headers;
   },
 });

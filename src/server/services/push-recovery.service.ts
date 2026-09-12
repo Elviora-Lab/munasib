@@ -87,7 +87,7 @@ export const pushRecoveryService = {
       const title = itemCount > 1 ? `${itemCount} items are waiting` : 'Your cart is waiting';
       const body =
         itemCount > 1
-          ? `Complete your Kitchenly order before these items sell out.`
+          ? `Complete your Munasib order before these items sell out.`
           : `${first.product.name} is still saved in your cart.`;
       const icon = first.product.images[0]?.imageUrl;
 

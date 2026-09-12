@@ -5,7 +5,7 @@ import { execFileSync } from 'node:child_process';
  * clean up fixtures (test admin, imported products). Override with
  * E2E_DATABASE_URL when the dev DB lives elsewhere.
  */
-const DB = process.env.E2E_DATABASE_URL ?? 'postgresql://hshahir@localhost:5432/elviora';
+const DB = process.env.E2E_DATABASE_URL ?? 'postgresql://hshahir@localhost:5432/munasib';
 
 export function sql(query: string): string {
   return execFileSync('psql', [DB, '-v', 'ON_ERROR_STOP=1', '-t', '-A', '-c', query], {

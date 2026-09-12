@@ -55,7 +55,6 @@ type ProductCellProps = {
   productName: string;
   productSlug: string | null;
   imageUrl: string | null;
-  sku: string | null;
   variantName?: string | null;
   size?: string | null;
   shade?: string | null;
@@ -68,7 +67,6 @@ export function ProductCell({
   productName,
   productSlug,
   imageUrl,
-  sku,
   variantName,
   size,
   shade,
@@ -109,10 +107,6 @@ export function ProductCell({
             <Chip label="Variant" value={displayVariant(variantName)} />
           ) : null}
         </div>
-
-        {sku ? (
-          <div className="mt-1 font-mono text-[11px] text-muted-foreground">SKU {sku}</div>
-        ) : null}
       </div>
     </div>
   );

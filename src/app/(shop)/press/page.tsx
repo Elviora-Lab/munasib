@@ -1,3 +1,5 @@
+import { siteConfig } from '@/config/site';
+
 import { buildMetadata } from '@/lib/seo/metadata';
 
 import { Section, SectionHeading } from '@/design-system/primitives/section';
@@ -5,7 +7,7 @@ import { Section, SectionHeading } from '@/design-system/primitives/section';
 export const metadata = buildMetadata({
   title: 'Press',
   description:
-    'Press resources and media enquiries for Kitchenly — our story, assets, and contacts in one place.',
+    'Press resources and media enquiries for Munasib — our story, assets, and contacts in one place.',
   path: '/press',
 });
 
@@ -22,7 +24,7 @@ export default function PressPage() {
 
         <div className="flex flex-col gap-6 text-pretty leading-relaxed text-muted-foreground">
           <p>
-            Kitchenly is a home essentials brand founded in Karachi, built on tested products and a
+            Munasib is a home essentials brand founded in Karachi, built on tested products and a
             practical point of view. We welcome conversations with editors, reviewers, and
             storytellers who share our love of craft.
           </p>
@@ -37,9 +39,9 @@ export default function PressPage() {
             Reach our press team at{' '}
             <a
               className="font-medium text-foreground underline underline-offset-4"
-              href="mailto:support@kitchenly.com.pk"
+              href={`mailto:${siteConfig.contact.email}`}
             >
-              support@kitchenly.com.pk
+              {siteConfig.contact.email}
             </a>{' '}
             and we will respond within two business days.
           </p>

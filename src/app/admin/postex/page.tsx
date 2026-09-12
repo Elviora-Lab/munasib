@@ -107,7 +107,7 @@ export default async function AdminPostExPage() {
         <Card>
           <CardHeader>
             <CardTitle>Local PostEx shipments</CardTitle>
-            <CardDescription>Last 25 consignments saved in Kitchenly.</CardDescription>
+            <CardDescription>Last 25 consignments saved in Munasib.</CardDescription>
           </CardHeader>
           <CardContent className="overflow-x-auto p-0">
             <table className="w-full min-w-[760px] text-sm">

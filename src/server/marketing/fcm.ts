@@ -3,7 +3,8 @@ import 'server-only';
 import { type App, cert, getApps, initializeApp } from 'firebase-admin/app';
 import { getMessaging } from 'firebase-admin/messaging';
 
-import { publicEnv, serverEnv } from '@/config/env';
+import { serverEnv } from '@/config/env';
+import { SITE_URL } from '@/config/site';
 
 type PushMessage = {
   token: string;
@@ -95,7 +96,7 @@ function getAdminApp(): App | null {
 }
 
 function absoluteAssetUrl(pathOrUrl: string | undefined, fallbackPath: string): string {
-  const site = (publicEnv.NEXT_PUBLIC_SITE_URL || 'https://kitchenly.com.pk').replace(/\/$/, '');
+  const site = SITE_URL;
   const value = pathOrUrl?.trim() || fallbackPath;
   if (/^https?:\/\//i.test(value)) return value;
   return `${site}${value.startsWith('/') ? value : `/${value}`}`;

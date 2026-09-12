@@ -12,8 +12,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { bulkImportProducts, importShopifyProducts } from '@/server/actions/admin/products.actions';
 
 const TEMPLATE_CSV = `name,price,sku,category,brand,description,imageUrl,stock,isActive
-Adjustable Spice Rack,1499,KIT-SR-01,Storage,Kitchenly,Two-tier expandable rack for cupboards,https://cdn.example.com/spice-rack.jpg,100,true
-Microfibre Mop Set,999,KIT-MP-02,Cleaning,Kitchenly,Flat mop with two washable pads,,50,true
+Adjustable Spice Rack,1499,KIT-SR-01,Storage,Munasib,Two-tier expandable rack for cupboards,https://cdn.example.com/spice-rack.jpg,100,true
+Microfibre Mop Set,999,KIT-MP-02,Cleaning,Munasib,Flat mop with two washable pads,,50,true
 `;
 
 function downloadTemplate() {
@@ -21,7 +21,7 @@ function downloadTemplate() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'kitchenly-products-template.csv';
+  a.download = 'munasib-products-template.csv';
   document.body.appendChild(a);
   a.click();
   a.remove();
